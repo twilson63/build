@@ -63,6 +63,31 @@ describe('runAgent', () => {
       .resolves.toEqual({ reply: 'ok', patches: [] })
   })
 
+  it('extracts JSON from model prose when possible', async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
+      message: { content: 'Here is the update:\n{"reply":"ok","patches":[]}\nDone.' },
+    }), { status: 200 })) as typeof fetch
+
+    await expect(runAgent({ provider: 'ollama', model: 'model', userPrompt: 'noop', messages: [], files: [] }))
+      .resolves.toEqual({ reply: 'ok', patches: [] })
+  })
+
+  it('repairs invalid non-JSON model responses with one follow-up request', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        message: { content: "Here's what I changed: not JSON" },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        message: { content: '{"reply":"repaired","patches":[]}' },
+      }), { status: 200 }))
+    globalThis.fetch = fetchMock as typeof fetch
+
+    await expect(runAgent({ provider: 'ollama', model: 'model', userPrompt: 'noop', messages: [], files: [] }))
+      .resolves.toEqual({ reply: 'repaired', patches: [] })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(String(fetchMock.mock.calls[1][1]?.body)).toContain('Invalid response to repair')
+  })
+
   it('throws useful errors for failed Ollama responses', async () => {
     globalThis.fetch = vi.fn(async () => new Response('model missing', { status: 404 })) as typeof fetch
 

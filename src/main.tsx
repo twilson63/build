@@ -6,7 +6,7 @@ import { createProject, deleteProject, formatUpdatedAt, getCurrentProjectId, get
 import { TerminalPanel } from './TerminalPanel'
 import { starterFiles, upsertFile, type ProjectFile } from './templates'
 import { downloadZip } from './zip'
-import { mountProject, readProjectFile, runInstall, startDevServer, writeProjectFile } from './webcontainer'
+import { mountProject, readProjectFilesFromWebContainer, runInstall, startDevServer, writeProjectFile } from './webcontainer'
 import './styles.css'
 
 function App() {
@@ -217,17 +217,14 @@ function App() {
     await refreshProjectList()
   }
 
-  async function syncPackageFilesFromTerminal() {
-    const paths = ['package.json', 'package-lock.json']
-    let synced = 0
-    for (const path of paths) {
-      const content = await readProjectFile(path)
-      if (content !== undefined) {
-        setFiles(current => upsertFile(current, path, content))
-        synced += 1
-      }
+  async function syncFilesFromTerminal() {
+    const syncedFiles = await readProjectFilesFromWebContainer()
+    if (syncedFiles.length) {
+      setFiles(syncedFiles)
+      setSaveStatus(`Synced ${syncedFiles.length} files from terminal`)
+    } else {
+      setSaveStatus('No files found to sync')
     }
-    setSaveStatus(synced ? `Synced ${synced} package file${synced === 1 ? '' : 's'} from terminal` : 'No package files found to sync')
   }
 
   async function resetProject() {
@@ -465,7 +462,7 @@ function App() {
         <div className="terminalPane">
           <div className="terminalToolbar">
             <span>Terminal</span>
-            <button type="button" className="ghost compact" onClick={syncPackageFilesFromTerminal}>Sync package files</button>
+            <button type="button" className="ghost compact" onClick={syncFilesFromTerminal}>Sync files</button>
           </div>
           <TerminalPanel logs={logs} enabled={projectReady && !busy} />
         </div>

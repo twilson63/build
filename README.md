@@ -12,7 +12,7 @@ Build is an anonymous browser-based app builder MVP. It runs a Vite/React projec
 - Starter React app with PGlite for browser-local Postgres-style storage
 - In-browser CodeMirror source editor with syntax highlighting
 - Interactive WebContainer terminal for commands like `npm install lucide-react`
-- Sync package files after terminal installs so `package.json` and `package-lock.json` update in the editor/export state
+- Sync files after terminal changes so editor/project/export state reflects WebContainer filesystem changes
 - Anonymous multi-project management stored locally in IndexedDB
 - Auto-save, create, open, rename, and delete projects
 - Cancel, reset, clear chat, and connection test controls

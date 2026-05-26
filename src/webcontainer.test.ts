@@ -4,6 +4,7 @@ const mockMount = vi.fn()
 const mockMkdir = vi.fn()
 const mockWriteFile = vi.fn()
 const mockReadFile = vi.fn()
+const mockReaddir = vi.fn()
 const mockSpawn = vi.fn()
 const mockOn = vi.fn()
 
@@ -11,7 +12,7 @@ vi.mock('@webcontainer/api', () => ({
   WebContainer: {
     boot: vi.fn(async () => ({
       mount: mockMount,
-      fs: { mkdir: mockMkdir, writeFile: mockWriteFile, readFile: mockReadFile },
+      fs: { mkdir: mockMkdir, writeFile: mockWriteFile, readFile: mockReadFile, readdir: mockReaddir },
       spawn: mockSpawn,
       on: mockOn,
     })),
@@ -33,6 +34,7 @@ describe('webcontainer helpers', () => {
     vi.clearAllMocks()
     mockSpawn.mockResolvedValue(mockProcess())
     mockReadFile.mockResolvedValue('file content')
+    mockReaddir.mockResolvedValue([])
   })
 
   it('boots only once and mounts project files as a WebContainer tree', async () => {
@@ -68,6 +70,27 @@ describe('webcontainer helpers', () => {
     const { readProjectFile } = await import('./webcontainer')
 
     await expect(readProjectFile('missing.json')).resolves.toBeUndefined()
+  })
+
+  it('recursively syncs text project files and ignores generated directories', async () => {
+    const dir = (name: string) => ({ name, isDirectory: () => true, isFile: () => false })
+    const file = (name: string) => ({ name, isDirectory: () => false, isFile: () => true })
+    mockReaddir.mockImplementation(async (path: string) => {
+      if (path === '.') return [file('package.json'), file('image.png'), dir('src'), dir('node_modules'), dir('dist')]
+      if (path === 'src') return [file('main.tsx'), file('style.css')]
+      throw new Error(`Unexpected readdir ${path}`)
+    })
+    mockReadFile.mockImplementation(async (path: string) => `content:${path}`)
+    const { readProjectFilesFromWebContainer } = await import('./webcontainer')
+
+    await expect(readProjectFilesFromWebContainer()).resolves.toEqual([
+      { path: 'package.json', content: 'content:package.json' },
+      { path: 'src/main.tsx', content: 'content:src/main.tsx' },
+      { path: 'src/style.css', content: 'content:src/style.css' },
+    ])
+    expect(mockReaddir).not.toHaveBeenCalledWith('node_modules', expect.anything())
+    expect(mockReaddir).not.toHaveBeenCalledWith('dist', expect.anything())
+    expect(mockReadFile).not.toHaveBeenCalledWith('image.png', 'utf-8')
   })
 
   it('runs npm install and pipes process output', async () => {

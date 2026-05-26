@@ -30,6 +30,39 @@ export async function readProjectFile(path: string): Promise<string | undefined>
   }
 }
 
+const IGNORED_SYNC_DIRS = new Set(['node_modules', 'dist', '.git', '.cache', '.next', '.vite', 'coverage'])
+const TEXT_FILE_PATTERN = /\.(css|html|js|jsx|json|md|mjs|cjs|ts|tsx|txt|yml|yaml)$/i
+const TEXT_FILE_NAMES = new Set(['package-lock.json', 'package.json', 'vite.config.ts', 'tsconfig.json', 'README.md'])
+
+export async function readProjectFilesFromWebContainer(): Promise<ProjectFile[]> {
+  const wc = await bootWebContainer()
+
+  async function walk(dir = ''): Promise<ProjectFile[]> {
+    const entries = await wc.fs.readdir(dir || '.', { withFileTypes: true })
+    const files: ProjectFile[] = []
+
+    for (const entry of entries) {
+      const path = dir ? `${dir}/${entry.name}` : entry.name
+      if (entry.isDirectory()) {
+        if (IGNORED_SYNC_DIRS.has(entry.name)) continue
+        files.push(...await walk(path))
+      } else if (entry.isFile() && isSyncableTextFile(path)) {
+        const content = await readProjectFile(path)
+        if (content !== undefined) files.push({ path, content })
+      }
+    }
+
+    return files
+  }
+
+  return (await walk()).sort((a, b) => a.path.localeCompare(b.path))
+}
+
+function isSyncableTextFile(path: string) {
+  const name = path.split('/').at(-1) ?? path
+  return TEXT_FILE_NAMES.has(name) || TEXT_FILE_PATTERN.test(path)
+}
+
 export async function runInstall(onLog: (line: string) => void) {
   const wc = await bootWebContainer()
   const proc = await wc.spawn('npm', ['install'])

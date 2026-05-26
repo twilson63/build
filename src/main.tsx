@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { runAgent, type AgentProvider, type ChatMessage } from './agent'
+import { CodeEditor } from './CodeEditor'
 import { createProject, deleteProject, formatUpdatedAt, getCurrentProjectId, getProject, listProjects, saveProject, setCurrentProjectId as persistCurrentProjectId, type SavedProject } from './projects'
 import { starterFiles, upsertFile, type ProjectFile } from './templates'
 import { downloadZip } from './zip'
@@ -444,7 +445,9 @@ function App() {
         <div className="files">
           {files.map(file => <button key={file.path} className={file.path === selectedPath ? 'active' : ''} onClick={() => setSelectedPath(file.path)}>{file.path}</button>)}
         </div>
-        <textarea className="editor" value={selectedFile.content} onChange={async e => applyFile(selectedFile.path, e.target.value)} spellCheck={false} />
+        <div className="editor">
+          <CodeEditor path={selectedFile.path} value={selectedFile.content} onChange={value => void applyFile(selectedFile.path, value)} />
+        </div>
         <pre className="logs">{logs.join('')}</pre>
       </section>
     </main>

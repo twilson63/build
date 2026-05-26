@@ -10,7 +10,7 @@ Build is an anonymous browser-based app builder MVP. It runs a Vite/React projec
 - Live preview pane with loading/waiting animations
 - Agent chat powered by OpenRouter by default or local Ollama optionally
 - Starter React app with PGlite for browser-local Postgres-style storage
-- In-browser file viewer/editor and runtime logs
+- In-browser CodeMirror source editor with syntax highlighting and runtime logs
 - Anonymous multi-project management stored locally in IndexedDB
 - Auto-save, create, open, rename, and delete projects
 - Cancel, reset, clear chat, and connection test controls

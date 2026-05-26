@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mockMount = vi.fn()
 const mockMkdir = vi.fn()
 const mockWriteFile = vi.fn()
+const mockReadFile = vi.fn()
 const mockSpawn = vi.fn()
 const mockOn = vi.fn()
 
@@ -10,7 +11,7 @@ vi.mock('@webcontainer/api', () => ({
   WebContainer: {
     boot: vi.fn(async () => ({
       mount: mockMount,
-      fs: { mkdir: mockMkdir, writeFile: mockWriteFile },
+      fs: { mkdir: mockMkdir, writeFile: mockWriteFile, readFile: mockReadFile },
       spawn: mockSpawn,
       on: mockOn,
     })),
@@ -31,6 +32,7 @@ describe('webcontainer helpers', () => {
     vi.resetModules()
     vi.clearAllMocks()
     mockSpawn.mockResolvedValue(mockProcess())
+    mockReadFile.mockResolvedValue('file content')
   })
 
   it('boots only once and mounts project files as a WebContainer tree', async () => {
@@ -52,6 +54,20 @@ describe('webcontainer helpers', () => {
 
     expect(mockMkdir).toHaveBeenCalledWith('src/components', { recursive: true })
     expect(mockWriteFile).toHaveBeenCalledWith('src/components/App.tsx', 'content')
+  })
+
+  it('reads project files from the WebContainer filesystem', async () => {
+    const { readProjectFile } = await import('./webcontainer')
+
+    await expect(readProjectFile('package.json')).resolves.toBe('file content')
+    expect(mockReadFile).toHaveBeenCalledWith('package.json', 'utf-8')
+  })
+
+  it('returns undefined for missing project files', async () => {
+    mockReadFile.mockRejectedValueOnce(new Error('missing'))
+    const { readProjectFile } = await import('./webcontainer')
+
+    await expect(readProjectFile('missing.json')).resolves.toBeUndefined()
   })
 
   it('runs npm install and pipes process output', async () => {

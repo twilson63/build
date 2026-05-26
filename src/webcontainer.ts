@@ -21,6 +21,15 @@ export async function writeProjectFile(path: string, content: string) {
   await wc.fs.writeFile(path, content)
 }
 
+export async function readProjectFile(path: string): Promise<string | undefined> {
+  const wc = await bootWebContainer()
+  try {
+    return await wc.fs.readFile(path, 'utf-8')
+  } catch {
+    return undefined
+  }
+}
+
 export async function runInstall(onLog: (line: string) => void) {
   const wc = await bootWebContainer()
   const proc = await wc.spawn('npm', ['install'])

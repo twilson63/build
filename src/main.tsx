@@ -10,10 +10,11 @@ function App() {
   const [files, setFiles] = useState<ProjectFile[]>(starterFiles)
   const [selectedPath, setSelectedPath] = useState(starterFiles[2].path)
   const [prompt, setPrompt] = useState('')
-  const [provider, setProvider] = useState<AgentProvider>((localStorage.getItem('agent-provider') as AgentProvider | null) ?? 'ollama')
+  const [provider, setProvider] = useState<AgentProvider>((localStorage.getItem('agent-provider') as AgentProvider | null) ?? 'openrouter')
   const [apiKey, setApiKey] = useState(localStorage.getItem('openrouter-key') ?? '')
   const [ollamaUrl, setOllamaUrl] = useState(localStorage.getItem('ollama-url') ?? 'http://localhost:11434')
-  const [model, setModel] = useState(localStorage.getItem('agent-model') ?? 'glm-5:cloud')
+  const [model, setModel] = useState(localStorage.getItem('agent-model') ?? '')
+  const [settingsOpen, setSettingsOpen] = useState(!localStorage.getItem('agent-model'))
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [logs, setLogs] = useState<string[]>([])
   const [previewUrl, setPreviewUrl] = useState('')
@@ -96,6 +97,19 @@ function App() {
     }
   }
 
+  function saveModelSettings() {
+    localStorage.setItem('agent-provider', provider)
+    localStorage.setItem('openrouter-key', apiKey.trim())
+    localStorage.setItem('ollama-url', ollamaUrl.trim())
+    localStorage.setItem('agent-model', model.trim())
+    setSettingsOpen(false)
+  }
+
+  function selectProvider(nextProvider: AgentProvider) {
+    setProvider(nextProvider)
+    if (!model.trim()) setModel(nextProvider === 'ollama' ? 'glm-5:cloud' : 'anthropic/claude-3.5-sonnet')
+  }
+
   async function testOllama() {
     setConnectionStatus('Testing Ollama...')
     try {
@@ -113,14 +127,12 @@ function App() {
 
   async function submit() {
     if (!prompt.trim() || busy) return
-    if (provider === 'openrouter' && !apiKey.trim()) {
-      alert('Paste an OpenRouter API key first, or switch to local Ollama.')
+    if (!model.trim() || (provider === 'openrouter' && !apiKey.trim())) {
+      setSettingsOpen(true)
+      alert(!model.trim() ? 'Choose a model before sending a prompt.' : 'Paste an OpenRouter API key first, or switch to local Ollama.')
       return
     }
-    localStorage.setItem('agent-provider', provider)
-    localStorage.setItem('openrouter-key', apiKey.trim())
-    localStorage.setItem('ollama-url', ollamaUrl.trim())
-    localStorage.setItem('agent-model', model.trim())
+    saveModelSettings()
     const userPrompt = prompt.trim()
     setPrompt('')
     setBusy(true)
@@ -157,26 +169,43 @@ function App() {
   return <div className="app">
     <aside className="panel chat">
       <header>
-        <h1>Build</h1>
+        <div className="titleRow">
+          <h1>Build</h1>
+          <button type="button" className="secondary iconButton" title="Model settings" aria-label="Model settings" onClick={() => setSettingsOpen(true)}>⚙️</button>
+        </div>
         <p>Use an agent to create your application in a live browser workspace.</p>
       </header>
-      <label>Provider
-        <select value={provider} onChange={e => setProvider(e.target.value as AgentProvider)}>
-          <option value="ollama">Ollama local/cloud</option>
-          <option value="openrouter">OpenRouter</option>
-        </select>
-      </label>
-      {provider === 'ollama' && <label>Ollama URL
-        <input value={ollamaUrl} onChange={e => setOllamaUrl(e.target.value)} placeholder="http://localhost:11434" />
-        <button type="button" className="secondary compact" onClick={testOllama}>Test Ollama connection</button>
-        {connectionStatus && <small className="status">{connectionStatus}</small>}
-      </label>}
-      {provider === 'openrouter' && <label>OpenRouter API key
-        <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-or-..." />
-      </label>}
-      <label>Model
-        <input value={model} onChange={e => setModel(e.target.value)} placeholder={provider === 'ollama' ? 'glm-5:cloud' : 'anthropic/claude-3.5-sonnet'} />
-      </label>
+      {settingsOpen && <div className="modalBackdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && model.trim()) setSettingsOpen(false) }}>
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+          <div className="modalHeader">
+            <div>
+              <h2 id="settings-title">Model settings</h2>
+              <p>Choose how Build connects to an LLM.</p>
+            </div>
+            <button type="button" className="ghost iconButton" aria-label="Close settings" disabled={!model.trim()} onClick={() => setSettingsOpen(false)}>×</button>
+          </div>
+          <label>Provider
+            <select value={provider} onChange={e => selectProvider(e.target.value as AgentProvider)}>
+              <option value="openrouter">OpenRouter</option>
+              <option value="ollama">Ollama local/cloud</option>
+            </select>
+          </label>
+          {provider === 'ollama' && <label>Ollama URL
+            <input value={ollamaUrl} onChange={e => setOllamaUrl(e.target.value)} placeholder="http://localhost:11434" />
+            <button type="button" className="secondary compact" onClick={testOllama}>Test Ollama connection</button>
+            {connectionStatus && <small className="status">{connectionStatus}</small>}
+          </label>}
+          {provider === 'openrouter' && <label>OpenRouter API key
+            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-or-..." />
+          </label>}
+          <label>Model
+            <input value={model} onChange={e => setModel(e.target.value)} placeholder={provider === 'ollama' ? 'glm-5:cloud' : 'anthropic/claude-3.5-sonnet'} />
+          </label>
+          <div className="modalActions">
+            <button type="button" onClick={saveModelSettings} disabled={!model.trim() || (provider === 'openrouter' && !apiKey.trim())}>Save settings</button>
+          </div>
+        </div>
+      </div>}
       <div className="chatTools">
         <span>{messages.length} messages</span>
         <button type="button" className="ghost compact" onClick={clearChat} disabled={messages.length === 0 || busy}>Clear chat</button>

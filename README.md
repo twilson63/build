@@ -8,7 +8,7 @@ Build is an anonymous browser-based app builder MVP. It runs a Vite/React projec
 
 - Browser-hosted development runtime via StackBlitz WebContainers
 - Live preview pane with loading/waiting animations
-- Agent chat powered by Ollama by default or OpenRouter optionally
+- Agent chat powered by OpenRouter by default or local Ollama optionally
 - Starter React app with PGlite for browser-local Postgres-style storage
 - In-browser file viewer/editor and runtime logs
 - Cancel, reset, clear chat, and connection test controls
@@ -30,15 +30,19 @@ npm test
 npm run build
 ```
 
+## Model settings
+
+Build opens the model settings modal on first load if no model is configured. OpenRouter is the default provider. Use the gear button beside the app title to change provider, model, API key, or Ollama URL.
+
 ## Local Ollama
 
-Build defaults to Ollama at:
+To use Ollama, choose the Ollama provider in model settings. The default Ollama URL is:
 
 ```text
 http://localhost:11434
 ```
 
-with model:
+A good Ollama model value is:
 
 ```text
 glm-5:cloud

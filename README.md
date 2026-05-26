@@ -11,6 +11,8 @@ Build is an anonymous browser-based app builder MVP. It runs a Vite/React projec
 - Agent chat powered by OpenRouter by default or local Ollama optionally
 - Starter React app with PGlite for browser-local Postgres-style storage
 - In-browser file viewer/editor and runtime logs
+- Anonymous multi-project management stored locally in IndexedDB
+- Save, create, open, rename, and delete projects
 - Cancel, reset, clear chat, and connection test controls
 - Export current project as a compressed ZIP
 
@@ -29,6 +31,12 @@ Run checks:
 npm test
 npm run build
 ```
+
+## Project management
+
+Build stores anonymous projects in browser IndexedDB. Use the project controls in the sidebar to rename the current project, save it, create a new project, or open the Projects modal to switch/delete projects.
+
+Project storage includes source files, selected file, chat history, and project metadata. It does not currently snapshot the preview app's internal PGlite IndexedDB data.
 
 ## Model settings
 

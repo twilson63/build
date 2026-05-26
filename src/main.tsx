@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { runAgent, type AgentProvider, type ChatMessage } from './agent'
+import { createProject, deleteProject, formatUpdatedAt, getCurrentProjectId, getProject, listProjects, saveProject, setCurrentProjectId as persistCurrentProjectId, type SavedProject } from './projects'
 import { starterFiles, upsertFile, type ProjectFile } from './templates'
 import { downloadZip } from './zip'
 import { mountProject, runInstall, startDevServer, writeProjectFile } from './webcontainer'
@@ -14,7 +15,6 @@ function App() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('openrouter-key') ?? '')
   const [ollamaUrl, setOllamaUrl] = useState(localStorage.getItem('ollama-url') ?? 'http://localhost:11434')
   const [model, setModel] = useState(localStorage.getItem('agent-model') ?? '')
-  const [settingsOpen, setSettingsOpen] = useState(!localStorage.getItem('agent-model'))
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [logs, setLogs] = useState<string[]>([])
   const [previewUrl, setPreviewUrl] = useState('')
@@ -23,6 +23,13 @@ function App() {
   const [agentStartedAt, setAgentStartedAt] = useState<number | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [expandedMessages, setExpandedMessages] = useState<Set<number>>(new Set())
+  const [settingsOpen, setSettingsOpen] = useState(!localStorage.getItem('agent-model'))
+  const [projectsOpen, setProjectsOpen] = useState(false)
+  const [savedProjects, setSavedProjects] = useState<SavedProject[]>([])
+  const [currentProjectId, setCurrentProjectIdState] = useState<string | null>(null)
+  const [projectName, setProjectName] = useState('Untitled Project')
+  const [saveStatus, setSaveStatus] = useState('Not saved')
+  const [projectReady, setProjectReady] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const messagesRef = useRef<HTMLDivElement | null>(null)
 
@@ -39,6 +46,31 @@ function App() {
   }, [messages, agentStartedAt])
 
   useEffect(() => {
+    async function loadInitialProject() {
+      try {
+        const projects = await listProjects()
+        setSavedProjects(projects)
+        const id = await getCurrentProjectId()
+        const project = id ? await getProject(id) : undefined
+        if (project) {
+          setCurrentProjectIdState(project.id)
+          setProjectName(project.name)
+          setFiles(project.files.length ? project.files : starterFiles)
+          setMessages(project.messages)
+          setSelectedPath(project.selectedPath || starterFiles[2].path)
+          setSaveStatus(`Loaded ${formatUpdatedAt(project.updatedAt)}`)
+        }
+      } catch (error) {
+        appendLog(error instanceof Error ? error.message : String(error))
+      } finally {
+        setProjectReady(true)
+      }
+    }
+    loadInitialProject()
+  }, [])
+
+  useEffect(() => {
+    if (!projectReady) return
     let mounted = true
     async function boot() {
       try {
@@ -56,17 +88,33 @@ function App() {
     }
     boot()
     return () => { mounted = false }
-    // boot exactly once with starter files
+    // boot exactly once after IndexedDB project hydration
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [projectReady])
 
   function appendLog(line: string) {
     setLogs(current => [...current.slice(-200), line])
   }
 
+  async function refreshProjectList() {
+    setSavedProjects(await listProjects())
+  }
+
   async function applyFile(path: string, content: string) {
     setFiles(current => upsertFile(current, path, content))
     await writeProjectFile(path, content)
+    setSaveStatus('Unsaved changes')
+  }
+
+  async function remountProject(nextFiles: ProjectFile[]) {
+    setBusy(true)
+    try {
+      await mountProject(nextFiles)
+      appendLog('Installing project dependencies...')
+      await runInstall(appendLog)
+    } finally {
+      setBusy(false)
+    }
   }
 
   function cancelAgent() {
@@ -76,6 +124,69 @@ function App() {
   function clearChat() {
     setMessages([])
     setExpandedMessages(new Set())
+    setSaveStatus('Unsaved changes')
+  }
+
+  async function saveCurrentProject() {
+    const name = projectName.trim() || 'Untitled Project'
+    const now = new Date().toISOString()
+    const existing = currentProjectId ? await getProject(currentProjectId) : undefined
+    const project = existing
+      ? { ...existing, name, files, messages, selectedPath, updatedAt: now }
+      : await createProject({ name, files, messages, selectedPath })
+
+    const saved = existing ? await saveProject(project) : project
+    setCurrentProjectIdState(saved.id)
+    await persistCurrentProjectId(saved.id)
+    setProjectName(saved.name)
+    setSaveStatus('Saved just now')
+    await refreshProjectList()
+  }
+
+  async function newProject() {
+    if (!window.confirm('Create a new project? Unsaved changes may be lost.')) return
+    cancelAgent()
+    const created = await createProject({ name: 'Untitled Project', files: starterFiles, messages: [], selectedPath: starterFiles[2].path })
+    await persistCurrentProjectId(created.id)
+    setCurrentProjectIdState(created.id)
+    setProjectName(created.name)
+    setFiles(created.files)
+    setMessages([])
+    setExpandedMessages(new Set())
+    setSelectedPath(created.selectedPath)
+    setSaveStatus('Saved just now')
+    await refreshProjectList()
+    await remountProject(created.files)
+  }
+
+  async function openProject(project: SavedProject) {
+    cancelAgent()
+    await persistCurrentProjectId(project.id)
+    setCurrentProjectIdState(project.id)
+    setProjectName(project.name)
+    setFiles(project.files)
+    setMessages(project.messages)
+    setExpandedMessages(new Set())
+    setSelectedPath(project.selectedPath || project.files[0]?.path || starterFiles[2].path)
+    setProjectsOpen(false)
+    setSaveStatus(`Loaded ${formatUpdatedAt(project.updatedAt)}`)
+    await remountProject(project.files)
+  }
+
+  async function removeProject(project: SavedProject) {
+    if (!window.confirm(`Delete ${project.name}?`)) return
+    await deleteProject(project.id)
+    if (project.id === currentProjectId) {
+      await persistCurrentProjectId(null)
+      setCurrentProjectIdState(null)
+      setProjectName('Untitled Project')
+      setFiles(starterFiles)
+      setMessages([])
+      setSelectedPath(starterFiles[2].path)
+      setSaveStatus('Not saved')
+      await remountProject(starterFiles)
+    }
+    await refreshProjectList()
   }
 
   async function resetProject() {
@@ -84,6 +195,7 @@ function App() {
     clearChat()
     setSelectedPath(starterFiles[2].path)
     setFiles(starterFiles)
+    setSaveStatus('Unsaved changes')
     try {
       appendLog('Resetting project to starter app...')
       await mountProject(starterFiles)
@@ -150,6 +262,7 @@ function App() {
         await runInstall(appendLog)
       }
       setMessages(current => [...current, { role: 'assistant', content: result.reply }])
+      setSaveStatus('Unsaved changes')
     } catch (error) {
       const rawMessage = error instanceof DOMException && error.name === 'AbortError' ? 'Request canceled or timed out after 120 seconds.' : error instanceof Error ? error.message : String(error)
       const message = provider === 'ollama' && /fetch|network|failed/i.test(rawMessage)
@@ -175,6 +288,19 @@ function App() {
         </div>
         <p>Use an agent to create your application in a live browser workspace.</p>
       </header>
+
+      <section className="projectControls">
+        <label>Project
+          <input value={projectName} onChange={e => { setProjectName(e.target.value); setSaveStatus('Unsaved changes') }} placeholder="Untitled Project" />
+        </label>
+        <div className="actions">
+          <button type="button" className="secondary compact" onClick={() => setProjectsOpen(true)}>Projects</button>
+          <button type="button" className="secondary compact" onClick={saveCurrentProject} disabled={busy}>Save</button>
+          <button type="button" className="secondary compact" onClick={newProject} disabled={busy}>New</button>
+        </div>
+        <small className="status">{saveStatus}</small>
+      </section>
+
       {settingsOpen && <div className="modalBackdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && model.trim()) setSettingsOpen(false) }}>
         <div className="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
           <div className="modalHeader">
@@ -206,6 +332,33 @@ function App() {
           </div>
         </div>
       </div>}
+
+      {projectsOpen && <div className="modalBackdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setProjectsOpen(false) }}>
+        <div className="modal projectModal" role="dialog" aria-modal="true" aria-labelledby="projects-title">
+          <div className="modalHeader">
+            <div>
+              <h2 id="projects-title">Projects</h2>
+              <p>Saved anonymously in this browser with IndexedDB.</p>
+            </div>
+            <button type="button" className="ghost iconButton" aria-label="Close projects" onClick={() => setProjectsOpen(false)}>×</button>
+          </div>
+          <button type="button" onClick={newProject} disabled={busy}>+ New Project</button>
+          <div className="projectList">
+            {savedProjects.length === 0 && <p className="empty">No saved projects yet. Save this project or create a new one.</p>}
+            {savedProjects.map(project => <article className="projectCard" key={project.id}>
+              <div>
+                <strong>{project.name}</strong>
+                <small>Updated {formatUpdatedAt(project.updatedAt)}{project.id === currentProjectId ? ' · current' : ''}</small>
+              </div>
+              <div className="projectActions">
+                <button type="button" className="secondary compact" onClick={() => openProject(project)} disabled={busy}>Open</button>
+                <button type="button" className="ghost compact" onClick={() => removeProject(project)} disabled={busy}>Delete</button>
+              </div>
+            </article>)}
+          </div>
+        </div>
+      </div>}
+
       <div className="chatTools">
         <span>{messages.length} messages</span>
         <button type="button" className="ghost compact" onClick={clearChat} disabled={messages.length === 0 || busy}>Clear chat</button>

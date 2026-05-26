@@ -66,7 +66,8 @@ iframe { flex: 1; width: 100%; border: 0; background: white; transition: filter 
 .files button.active { color: white; background: #23304a; }
 .editor { min-width: 0; min-height: 0; overflow: hidden; background: #282c34; }
 .editor .cm-editor { height: 100%; font-size: 13px; }
-.editor .cm-scroller { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.editor .cm-scroller { height: 100%; overflow: auto !important; overscroll-behavior: contain; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.editor .cm-content { min-height: 100%; }
 .terminalPane { min-width: 0; min-height: 0; display: grid; grid-template-rows: 38px 1fr; background: #050915; border-left: 1px solid #26324d; }
 .terminalToolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px; color: #9fb0d1; border-bottom: 1px solid #26324d; font-size: .82rem; }
 .terminal { min-width: 0; min-height: 0; overflow: hidden; padding: 8px; background: #050915; }

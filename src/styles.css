@@ -23,6 +23,11 @@ input:focus, textarea:focus, select:focus { border-color: #6d8dff; box-shadow: 0
 .chat > textarea { height: 110px; resize: none; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .thinking { color: #c8d4ee; background: #1b2740; border: 1px solid #31405f; border-radius: 12px; padding: 9px 11px; font-size: .9rem; }
+.selectedElementPanel { display: grid; gap: 10px; padding: 12px; border: 1px solid #3f5fff; border-radius: 16px; background: #12224a; }
+.selectedElementPanel small { color: #9fb0d1; text-transform: uppercase; letter-spacing: .08em; font-size: .68rem; font-weight: 800; }
+.selectedElementPanel strong { display: block; margin: 3px 0; color: white; }
+.selectedElementPanel p { max-height: 48px; overflow: hidden; font-size: .82rem; }
+.selectedElementPanel textarea { height: 86px; resize: none; }
 button { border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; background: #6d8dff; color: #081020; cursor: pointer; }
 button:disabled { opacity: .55; cursor: wait; }
 button.secondary { background: #23304a; color: #eaf0ff; }
@@ -50,7 +55,9 @@ button.miniIcon { width: 28px; height: 28px; flex: 0 0 auto; padding: 0; border-
 .workspace { min-width: 0; display: grid; grid-template-rows: 1fr 310px; background: #0b1020; }
 .preview { min-height: 0; display: flex; flex-direction: column; }
 .bar { height: 42px; display: flex; align-items: center; gap: 14px; padding: 0 14px; color: #eaf0ff; background: #111a2e; border-bottom: 1px solid #26324d; }
-.bar span { color: #8fa2c8; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar span { flex: 1; color: #8fa2c8; font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.selectingButton { background: #6d8dff; color: #081020; padding: 8px 10px; font-size: .85rem; animation: softPulse 1.2s ease-in-out infinite; }
+@keyframes softPulse { 50% { filter: brightness(1.25); } }
 .previewFrame { position: relative; flex: 1; min-height: 0; display: flex; background: white; overflow: hidden; }
 iframe { flex: 1; width: 100%; border: 0; background: white; transition: filter .25s ease, transform .25s ease; }
 .previewFrame:has(.previewOverlay) iframe { filter: saturate(.85) brightness(.82); transform: scale(.995); }

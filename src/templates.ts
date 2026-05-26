@@ -29,6 +29,7 @@ export const starterFiles: ProjectFile[] = [
     content: `import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { db } from './db'
+import './build-inspector'
 import './style.css'
 
 type Note = { id: number; text: string }
@@ -77,6 +78,84 @@ createRoot(document.getElementById('root')!).render(<App />)
     content: `import { PGlite } from '@electric-sql/pglite'
 
 export const db = new PGlite('idb://preview-app')
+`,
+  },
+  {
+    path: 'src/build-inspector.ts',
+    content: `const STYLE_ID = 'build-inspector-style'
+let enabled = false
+let hovered: Element | null = null
+
+const style = document.createElement('style')
+style.id = STYLE_ID
+style.textContent = '[data-build-inspector-hover] { outline: 2px solid #6d8dff !important; outline-offset: 3px !important; cursor: crosshair !important; }'
+
+function ensureStyle() {
+  if (!document.getElementById(STYLE_ID)) document.head.appendChild(style)
+}
+
+function computedStylesFor(element: Element) {
+  const styles = getComputedStyle(element)
+  return {
+    color: styles.color,
+    backgroundColor: styles.backgroundColor,
+    fontFamily: styles.fontFamily,
+    fontSize: styles.fontSize,
+    fontWeight: styles.fontWeight,
+    display: styles.display,
+    padding: styles.padding,
+    margin: styles.margin,
+    borderRadius: styles.borderRadius,
+  }
+}
+
+function clearHover() {
+  hovered?.removeAttribute('data-build-inspector-hover')
+  hovered = null
+}
+
+function enable() {
+  enabled = true
+  ensureStyle()
+}
+
+function disable() {
+  enabled = false
+  clearHover()
+}
+
+window.addEventListener('message', event => {
+  if (event.data?.type === 'BUILD_INSPECTOR_ENABLE') enable()
+  if (event.data?.type === 'BUILD_INSPECTOR_DISABLE') disable()
+})
+
+document.addEventListener('mouseover', event => {
+  if (!enabled || !(event.target instanceof Element)) return
+  clearHover()
+  hovered = event.target
+  hovered.setAttribute('data-build-inspector-hover', 'true')
+}, true)
+
+document.addEventListener('click', event => {
+  if (!enabled || !(event.target instanceof Element)) return
+  event.preventDefault()
+  event.stopPropagation()
+  const element = event.target
+  const rect = element.getBoundingClientRect()
+  window.parent.postMessage({
+    type: 'BUILD_ELEMENT_SELECTED',
+    element: {
+      tagName: element.tagName,
+      id: element.id,
+      classes: Array.from(element.classList),
+      textContent: (element.textContent || '').trim().slice(0, 1000),
+      outerHTML: element.outerHTML.slice(0, 4000),
+      boundingRect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      computedStyles: computedStylesFor(element),
+    },
+  }, '*')
+  disable()
+}, true)
 `,
   },
   {

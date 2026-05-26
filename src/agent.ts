@@ -1,3 +1,4 @@
+import { buildSelectedElementPrompt, type SelectedPreviewElement } from './preview-inspector'
 import type { ProjectFile } from './templates'
 
 export type ChatMessage = { role: 'user' | 'assistant' | 'system'; content: string }
@@ -14,6 +15,7 @@ Rules:
 - Do not use native Node modules, server-only packages, Docker, or external databases.
 - Keep changes small, coherent, and runnable.
 - If changing dependencies, replace package.json too.
+- Preserve src/build-inspector.ts and the './build-inspector' import unless the user explicitly asks to remove Build preview selection.
 - Never include markdown, prose, progress updates, or code fences outside the JSON object.
 `
 
@@ -25,6 +27,8 @@ type AgentArgs = {
   userPrompt: string
   files: ProjectFile[]
   messages: ChatMessage[]
+  selectedElement?: SelectedPreviewElement
+  elementComment?: string
   signal?: AbortSignal
 }
 
@@ -74,11 +78,14 @@ function findJsonObject(text: string) {
   throw new Error('Agent response contained an incomplete JSON object')
 }
 
-function messagesWithContext(args: { userPrompt: string; files: ProjectFile[]; messages: ChatMessage[] }): ModelMessage[] {
+function messagesWithContext(args: AgentArgs): ModelMessage[] {
+  const selectedElementContext = args.selectedElement && args.elementComment
+    ? `\n\n${buildSelectedElementPrompt({ comment: args.elementComment, element: args.selectedElement })}`
+    : ''
   return [
     { role: 'system', content: SYSTEM_PROMPT },
     ...args.messages.slice(-8),
-    { role: 'user', content: `Current project files:\n${projectContext(args.files)}\n\nUser request: ${args.userPrompt}` },
+    { role: 'user', content: `Current project files:\n${projectContext(args.files)}\n\nUser request: ${args.userPrompt}${selectedElementContext}` },
   ]
 }
 

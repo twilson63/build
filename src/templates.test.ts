@@ -8,9 +8,12 @@ describe('project templates', () => {
       'index.html',
       'src/main.tsx',
       'src/db.ts',
+      'src/build-inspector.ts',
       'src/style.css',
     ]))
     expect(starterFiles.find(file => file.path === 'src/db.ts')?.content).toContain('@electric-sql/pglite')
+    expect(starterFiles.find(file => file.path === 'src/main.tsx')?.content).toContain("./build-inspector")
+    expect(starterFiles.find(file => file.path === 'src/build-inspector.ts')?.content).toContain('BUILD_ELEMENT_SELECTED')
   })
 
   it('converts flat project files into a WebContainer file tree', () => {

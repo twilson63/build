@@ -88,6 +88,37 @@ describe('runAgent', () => {
     expect(String(fetchMock.mock.calls[1][1]?.body)).toContain('Invalid response to repair')
   })
 
+  it('sends selected preview element context to the model', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      message: { content: '{"reply":"ok","patches":[]}' },
+    }), { status: 200 }))
+    globalThis.fetch = fetchMock as typeof fetch
+
+    await runAgent({
+      provider: 'ollama',
+      model: 'model',
+      userPrompt: 'Improve selected element',
+      messages: [],
+      files: [{ path: 'src/main.tsx', content: '<button className="primary">Buy</button>' }],
+      elementComment: 'Make this button calmer',
+      selectedElement: {
+        tagName: 'BUTTON',
+        id: '',
+        classes: ['primary'],
+        textContent: 'Buy',
+        outerHTML: '<button class="primary">Buy</button>',
+        boundingRect: { x: 0, y: 0, width: 80, height: 32 },
+        computedStyles: { color: 'red' },
+      },
+    })
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const body = String(init.body)
+    expect(body).toContain('Selected rendered element')
+    expect(body).toContain('Make this button calmer')
+    expect(body).toContain('<button class=')
+  })
+
   it('throws useful errors for failed Ollama responses', async () => {
     globalThis.fetch = vi.fn(async () => new Response('model missing', { status: 404 })) as typeof fetch
 

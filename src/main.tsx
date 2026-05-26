@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { runAgent, type AgentProvider, type ChatMessage } from './agent'
 import { CodeEditor } from './CodeEditor'
 import { createProject, deleteProject, formatUpdatedAt, getCurrentProjectId, getProject, listProjects, saveProject, setCurrentProjectId as persistCurrentProjectId, type SavedProject } from './projects'
+import { isSelectedElementMessage, summarizeSelectedElement, type SelectedPreviewElement } from './preview-inspector'
 import { TerminalPanel } from './TerminalPanel'
 import { starterFiles, upsertFile, type ProjectFile } from './templates'
 import { downloadZip } from './zip'
@@ -33,8 +34,12 @@ function App() {
   const [saveStatus, setSaveStatus] = useState('Not saved')
   const [projectReady, setProjectReady] = useState(false)
   const [nameEditing, setNameEditing] = useState(false)
+  const [selectingElement, setSelectingElement] = useState(false)
+  const [selectedElement, setSelectedElement] = useState<SelectedPreviewElement | null>(null)
+  const [elementComment, setElementComment] = useState('')
   const abortRef = useRef<AbortController | null>(null)
   const messagesRef = useRef<HTMLDivElement | null>(null)
+  const previewRef = useRef<HTMLIFrameElement | null>(null)
   const autoSaveTimerRef = useRef<number | null>(null)
   const hydratedRef = useRef(false)
   const suppressAutoSaveRef = useRef(false)
@@ -50,6 +55,21 @@ function App() {
   useEffect(() => {
     messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, agentStartedAt])
+
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (!isSelectedElementMessage(event.data)) return
+      setSelectedElement(event.data.element)
+      setElementComment('')
+      setSelectingElement(false)
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [])
+
+  useEffect(() => {
+    previewRef.current?.contentWindow?.postMessage({ type: selectingElement ? 'BUILD_INSPECTOR_ENABLE' : 'BUILD_INSPECTOR_DISABLE' }, '*')
+  }, [selectingElement, previewUrl])
 
   useEffect(() => {
     async function loadInitialProject() {
@@ -275,6 +295,44 @@ function App() {
     }
   }
 
+  async function improveSelectedElement() {
+    if (!selectedElement || !elementComment.trim() || busy) return
+    if (!model.trim() || (provider === 'openrouter' && !apiKey.trim())) {
+      setSettingsOpen(true)
+      alert(!model.trim() ? 'Choose a model before improving the selected element.' : 'Paste an OpenRouter API key first, or switch to local Ollama.')
+      return
+    }
+    saveModelSettings()
+    const userPrompt = 'Improve the selected preview element based on the user comment.'
+    setBusy(true)
+    setElapsedSeconds(0)
+    setAgentStartedAt(Date.now())
+    const controller = new AbortController()
+    abortRef.current = controller
+    const timeout = window.setTimeout(() => controller.abort(), 120_000)
+    setMessages(current => [...current, { role: 'user', content: `Selected ${summarizeSelectedElement(selectedElement)}: ${elementComment.trim()}` }])
+    try {
+      const result = await runAgent({ provider, apiKey: apiKey.trim(), ollamaUrl: ollamaUrl.trim(), model: model.trim(), userPrompt, files, messages, selectedElement, elementComment: elementComment.trim(), signal: controller.signal })
+      for (const patch of result.patches) await applyFile(patch.path, patch.content)
+      if (result.patches.some(p => p.path === 'package.json')) {
+        appendLog('package.json changed; running npm install...')
+        await runInstall(appendLog)
+      }
+      setMessages(current => [...current, { role: 'assistant', content: result.reply }])
+      setSaveStatus('Unsaved changes')
+    } catch (error) {
+      const rawMessage = error instanceof DOMException && error.name === 'AbortError' ? 'Request canceled or timed out after 120 seconds.' : error instanceof Error ? error.message : String(error)
+      setMessages(current => [...current, { role: 'assistant', content: `Error: ${rawMessage}` }])
+      appendLog(rawMessage)
+    } finally {
+      window.clearTimeout(timeout)
+      abortRef.current = null
+      setAgentStartedAt(null)
+      setElapsedSeconds(0)
+      setBusy(false)
+    }
+  }
+
   async function submit() {
     if (!prompt.trim() || busy) return
     if (!model.trim() || (provider === 'openrouter' && !apiKey.trim())) {
@@ -408,6 +466,19 @@ function App() {
         </div>
       </div>}
 
+      {selectedElement && <section className="selectedElementPanel">
+        <div>
+          <small>Selected element</small>
+          <strong>{summarizeSelectedElement(selectedElement)}</strong>
+          <p>{selectedElement.textContent || selectedElement.outerHTML.slice(0, 120)}</p>
+        </div>
+        <textarea value={elementComment} onChange={e => setElementComment(e.target.value)} placeholder="Comment on how this element should improve..." />
+        <div className="actions">
+          <button type="button" className="secondary compact" onClick={improveSelectedElement} disabled={busy || !elementComment.trim()}>Improve selected</button>
+          <button type="button" className="ghost compact" onClick={() => setSelectedElement(null)}>Clear</button>
+        </div>
+      </section>}
+
       <div className="chatTools">
         <span>{messages.length} messages</span>
         <button type="button" className="ghost compact" onClick={clearChat} disabled={messages.length === 0 || busy}>Clear chat</button>
@@ -442,9 +513,9 @@ function App() {
 
     <main className="workspace">
       <section className="preview">
-        <div className="bar"><strong>Preview</strong><span>{previewUrl || 'starting...'}</span></div>
+        <div className="bar"><strong>Preview</strong><span>{previewUrl || 'starting...'}</span><button type="button" className={selectingElement ? 'selectingButton' : 'ghost compact'} onClick={() => setSelectingElement(current => !current)}>{selectingElement ? 'Selecting...' : 'Select element'}</button></div>
         <div className="previewFrame">
-          {previewUrl ? <iframe src={previewUrl} title="preview" /> : <div className="loading">Starting WebContainer...</div>}
+          {previewUrl ? <iframe ref={previewRef} src={previewUrl} title="preview" /> : <div className="loading">Starting WebContainer...</div>}
           {agentStartedAt && <div className="previewOverlay">
             <div className="pulseOrb" />
             <strong>Agent is updating your app</strong>

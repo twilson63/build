@@ -21,6 +21,8 @@ function mockProcess(exitCode = 0) {
   return {
     exit: Promise.resolve(exitCode),
     output: { pipeTo: vi.fn() },
+    input: { getWriter: vi.fn(() => ({ write: vi.fn() })) },
+    resize: vi.fn(),
   }
 }
 
@@ -73,5 +75,20 @@ describe('webcontainer helpers', () => {
     expect(mockOn).toHaveBeenCalledWith('server-ready', expect.any(Function))
     expect(mockSpawn).toHaveBeenCalledOnce()
     expect(mockSpawn).toHaveBeenCalledWith('npm', ['run', 'dev'])
+  })
+
+  it('starts an interactive jsh shell with terminal dimensions', async () => {
+    const proc = { ...mockProcess(0), exit: new Promise<number>(() => undefined) }
+    mockSpawn.mockResolvedValue(proc)
+    const { startShell } = await import('./webcontainer')
+
+    const controller = await startShell(vi.fn(), { cols: 120, rows: 30 })
+    await controller.write('npm install lucide-react\r')
+    controller.resize(100, 24)
+
+    expect(mockSpawn).toHaveBeenCalledWith('jsh', [], { terminal: { cols: 120, rows: 30 } })
+    expect(proc.input.getWriter).toHaveBeenCalledOnce()
+    expect(proc.output.pipeTo).toHaveBeenCalledOnce()
+    expect(proc.resize).toHaveBeenCalledWith({ cols: 100, rows: 24 })
   })
 })

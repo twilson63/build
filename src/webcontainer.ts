@@ -38,6 +38,25 @@ export async function startDevServer(onLog: (line: string) => void, onUrl: (url:
   pipeOutput(devProcess, onLog)
 }
 
+let shellProcess: WebContainerProcess | undefined
+let shellWriter: WritableStreamDefaultWriter<string> | undefined
+
+export async function startShell(onOutput: (chunk: string) => void, terminal: { cols: number; rows: number } = { cols: 80, rows: 24 }) {
+  const wc = await bootWebContainer()
+  if (shellProcess && shellWriter) return { write: (data: string) => shellWriter?.write(data), resize: (_cols: number, _rows: number) => undefined }
+  shellProcess = await wc.spawn('jsh', [], { terminal })
+  shellWriter = shellProcess.input.getWriter()
+  pipeOutput(shellProcess, onOutput)
+  shellProcess.exit.finally(() => {
+    shellProcess = undefined
+    shellWriter = undefined
+  })
+  return {
+    write: (data: string) => shellWriter?.write(data),
+    resize: (cols: number, rows: number) => shellProcess?.resize?.({ cols, rows }),
+  }
+}
+
 function pipeOutput(proc: WebContainerProcess, onLog: (line: string) => void) {
   proc.output.pipeTo(new WritableStream({ write: chunk => onLog(String(chunk)) }))
 }

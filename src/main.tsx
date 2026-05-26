@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { runAgent, type AgentProvider, type ChatMessage } from './agent'
 import { CodeEditor } from './CodeEditor'
 import { createProject, deleteProject, formatUpdatedAt, getCurrentProjectId, getProject, listProjects, saveProject, setCurrentProjectId as persistCurrentProjectId, type SavedProject } from './projects'
+import { TerminalPanel } from './TerminalPanel'
 import { starterFiles, upsertFile, type ProjectFile } from './templates'
 import { downloadZip } from './zip'
 import { mountProject, runInstall, startDevServer, writeProjectFile } from './webcontainer'
@@ -448,7 +449,7 @@ function App() {
         <div className="editor">
           <CodeEditor path={selectedFile.path} value={selectedFile.content} onChange={value => void applyFile(selectedFile.path, value)} />
         </div>
-        <pre className="logs">{logs.join('')}</pre>
+        <TerminalPanel logs={logs} enabled={projectReady && !busy} />
       </section>
     </main>
   </div>

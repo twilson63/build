@@ -1,3 +1,4 @@
+import { designGuidancePrompt } from './design-guidance'
 import { buildSelectedElementPrompt, type SelectedPreviewElement } from './preview-inspector'
 import type { ProjectFile } from './templates'
 
@@ -16,7 +17,11 @@ Rules:
 - Keep changes small, coherent, and runnable.
 - If changing dependencies, replace package.json too.
 - Preserve src/build-inspector.ts and the './build-inspector' import unless the user explicitly asks to remove Build preview selection.
+- Apply the bundled design guidance unless the user asks for a different brand or visual direction.
 - Never include markdown, prose, progress updates, or code fences outside the JSON object.
+
+Design guidance:
+${designGuidancePrompt()}
 `
 
 type AgentArgs = {

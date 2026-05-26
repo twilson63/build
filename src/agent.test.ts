@@ -37,6 +37,8 @@ describe('runAgent', () => {
     expect(JSON.parse(String(init.body))).toMatchObject({ model: 'glm-5:cloud', stream: false, format: 'json' })
     expect(String(init.body)).toContain('src/main.tsx')
     expect(String(init.body)).toContain('change title')
+    expect(String(init.body)).toContain('Scout Studio observed brand styles')
+    expect(String(init.body)).toContain('Anthropic brand guide')
   })
 
   it('calls OpenRouter with API key and response_format JSON', async () => {

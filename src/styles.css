@@ -30,7 +30,14 @@ button.ghost { background: transparent; color: #aebde0; border: 1px solid #31405
 button.compact { padding: 8px 10px; font-size: .85rem; }
 button.iconButton { width: 42px; height: 42px; padding: 0; display: grid; place-items: center; font-size: 1.15rem; }
 .status { color: #9fb0d1; line-height: 1.35; }
-.projectControls { display: grid; gap: 10px; padding: 12px; border: 1px solid #26324d; border-radius: 16px; background: #0d1628; }
+.projectControls { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 12px; border: 1px solid #26324d; border-radius: 16px; background: #0d1628; }
+.projectMeta { min-width: 0; display: grid; gap: 5px; }
+.projectMeta > small:first-child { color: #7f91b8; text-transform: uppercase; letter-spacing: .08em; font-size: .68rem; font-weight: 800; }
+.projectNameRow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.projectNameRow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.projectNameInput { padding: 7px 9px; border-radius: 10px; }
+.projectToolbar { display: flex; gap: 8px; }
+button.miniIcon { width: 28px; height: 28px; flex: 0 0 auto; padding: 0; border-radius: 9px; display: grid; place-items: center; }
 .projectModal { width: min(640px, 100%); max-height: min(720px, 90vh); overflow: auto; }
 .projectList { display: grid; gap: 10px; }
 .projectCard { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px; border: 1px solid #26324d; border-radius: 14px; background: #0b1221; }

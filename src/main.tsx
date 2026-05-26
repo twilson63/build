@@ -30,8 +30,12 @@ function App() {
   const [projectName, setProjectName] = useState('Untitled Project')
   const [saveStatus, setSaveStatus] = useState('Not saved')
   const [projectReady, setProjectReady] = useState(false)
+  const [nameEditing, setNameEditing] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const messagesRef = useRef<HTMLDivElement | null>(null)
+  const autoSaveTimerRef = useRef<number | null>(null)
+  const hydratedRef = useRef(false)
+  const suppressAutoSaveRef = useRef(false)
 
   const selectedFile = useMemo(() => files.find(file => file.path === selectedPath) ?? files[0], [files, selectedPath])
 
@@ -83,7 +87,10 @@ function App() {
       } catch (error) {
         appendLog(error instanceof Error ? error.message : String(error))
       } finally {
-        if (mounted) setBusy(false)
+        if (mounted) {
+          setBusy(false)
+          window.setTimeout(() => { hydratedRef.current = true }, 0)
+        }
       }
     }
     boot()
@@ -91,6 +98,23 @@ function App() {
     // boot exactly once after IndexedDB project hydration
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectReady])
+
+  useEffect(() => {
+    if (!hydratedRef.current || suppressAutoSaveRef.current) return
+    setSaveStatus('Saving...')
+    if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      saveCurrentProject({ silent: true }).catch(error => {
+        const message = error instanceof Error ? error.message : String(error)
+        setSaveStatus(`Auto-save failed: ${message}`)
+      })
+    }, 900)
+    return () => {
+      if (autoSaveTimerRef.current) window.clearTimeout(autoSaveTimerRef.current)
+    }
+    // auto-save project state after user edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files, messages, selectedPath, projectName])
 
   function appendLog(line: string) {
     setLogs(current => [...current.slice(-200), line])
@@ -107,6 +131,7 @@ function App() {
   }
 
   async function remountProject(nextFiles: ProjectFile[]) {
+    suppressAutoSaveRef.current = true
     setBusy(true)
     try {
       await mountProject(nextFiles)
@@ -114,6 +139,7 @@ function App() {
       await runInstall(appendLog)
     } finally {
       setBusy(false)
+      window.setTimeout(() => { suppressAutoSaveRef.current = false }, 0)
     }
   }
 
@@ -127,7 +153,7 @@ function App() {
     setSaveStatus('Unsaved changes')
   }
 
-  async function saveCurrentProject() {
+  async function saveCurrentProject(options: { silent?: boolean } = {}) {
     const name = projectName.trim() || 'Untitled Project'
     const now = new Date().toISOString()
     const existing = currentProjectId ? await getProject(currentProjectId) : undefined
@@ -138,8 +164,8 @@ function App() {
     const saved = existing ? await saveProject(project) : project
     setCurrentProjectIdState(saved.id)
     await persistCurrentProjectId(saved.id)
-    setProjectName(saved.name)
-    setSaveStatus('Saved just now')
+    if (projectName !== saved.name) setProjectName(saved.name)
+    setSaveStatus(options.silent ? `Auto-saved ${formatUpdatedAt(saved.updatedAt)}` : 'Saved just now')
     await refreshProjectList()
   }
 
@@ -289,16 +315,27 @@ function App() {
         <p>Use an agent to create your application in a live browser workspace.</p>
       </header>
 
-      <section className="projectControls">
-        <label>Project
-          <input value={projectName} onChange={e => { setProjectName(e.target.value); setSaveStatus('Unsaved changes') }} placeholder="Untitled Project" />
-        </label>
-        <div className="actions">
-          <button type="button" className="secondary compact" onClick={() => setProjectsOpen(true)}>Projects</button>
-          <button type="button" className="secondary compact" onClick={saveCurrentProject} disabled={busy}>Save</button>
-          <button type="button" className="secondary compact" onClick={newProject} disabled={busy}>New</button>
+      <section className="projectControls" aria-label="Project controls">
+        <div className="projectMeta">
+          <small>Project</small>
+          {nameEditing ? <input
+            className="projectNameInput"
+            autoFocus
+            value={projectName}
+            onChange={e => setProjectName(e.target.value)}
+            onBlur={() => setNameEditing(false)}
+            onKeyDown={e => { if (e.key === 'Enter') setNameEditing(false) }}
+            placeholder="Untitled Project"
+          /> : <div className="projectNameRow">
+            <strong title={projectName}>{projectName.trim() || 'Untitled Project'}</strong>
+            <button type="button" className="ghost miniIcon" title="Rename project" aria-label="Rename project" onClick={() => setNameEditing(true)}>✎</button>
+          </div>}
+          <small className="status">{saveStatus}</small>
         </div>
-        <small className="status">{saveStatus}</small>
+        <div className="projectToolbar">
+          <button type="button" className="secondary iconButton" title="Open projects" aria-label="Open projects" onClick={() => setProjectsOpen(true)}>📁</button>
+          <button type="button" className="secondary iconButton" title="New project" aria-label="New project" onClick={newProject} disabled={busy}>＋</button>
+        </div>
       </section>
 
       {settingsOpen && <div className="modalBackdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && model.trim()) setSettingsOpen(false) }}>

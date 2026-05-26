@@ -19,8 +19,13 @@ export const scoutBrandStyles = `Scout Studio observed brand styles from https:/
 - Primary controls: near-charcoal rgb(47 48 55) backgrounds with white text.
 - Inputs/buttons: compact 13px text, 6px border radius, 6px 12px padding, subtle 1px ring shadows instead of heavy borders.
 - Shadows: minimal layered rings and tiny elevation, e.g. 0 0 0 1px low-alpha black plus small 1-3px y shadow.
-- Layout: compact, centered authentication/product surfaces with generous surrounding whitespace.
-- Avoid decorative gradients; prefer precise spacing, crisp controls, and quiet contrast.`
+- App shell: pale gray left sidebar around 314px wide with a fine divider, white main canvas, sparse navigation, muted gray labels, and blue active/action accents.
+- Home screen composition: large centered greeting block with dark heading and oversized muted-gray subheading, followed by a wide rounded prompt composer.
+- Composer styling: 1px rainbow/blue-pink focus ring or gradient border, large radius around 16px, ample internal whitespace, subdued placeholder text, small icon row, and a quiet send button.
+- Chat list: compact rows with 28-32px circular avatars, soft gradient placeholders, 15-16px gray labels, clipped long titles.
+- Tool/banner surfaces: very light gray rounded rectangles, small integration icons, low-contrast utility copy.
+- Layout: compact controls with generous surrounding whitespace; the interface feels airy without being decorative.
+- Avoid decorative gradients except subtle avatar fills and fine focus rings; prefer precise spacing, crisp controls, and quiet contrast.`
 
 export function designGuidancePrompt() {
   return `${anthropicFrontendDesignSkill}\n\n${anthropicBrandGuidelines}\n\n${scoutBrandStyles}`

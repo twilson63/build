@@ -18,6 +18,8 @@ describe('design guidance', () => {
     expect(scoutBrandStyles).toContain('GeistSans')
     expect(scoutBrandStyles).toContain('rgb(47 48 55)')
     expect(scoutBrandStyles).toContain('6px')
+    expect(scoutBrandStyles).toContain('left sidebar')
+    expect(scoutBrandStyles).toContain('prompt composer')
   })
 
   it('combines all guidance into one prompt block', () => {

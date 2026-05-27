@@ -9,6 +9,7 @@ Build is an anonymous browser-based app builder MVP. It runs a Vite/React projec
 - Browser-hosted development runtime via StackBlitz WebContainers
 - Live preview pane with loading/waiting animations
 - Agent chat powered by OpenRouter by default or local Ollama optionally
+- 5-minute app-side agent request timeout with manual cancel support
 - Starter React app with PGlite for browser-local Postgres-style storage
 - In-browser CodeMirror source editor with syntax highlighting
 - Interactive WebContainer terminal for commands like `npm install lucide-react`
@@ -36,6 +37,18 @@ npm test
 npm run build
 ```
 
+## Architecture
+
+Build uses a Gleam/Elm-style actor architecture:
+
+- `src/App.tsx` is a thin React shell that reads from the app store and dispatches typed messages.
+- `src/store.ts` composes app state, routes cross-domain messages, and emits typed effects.
+- `src/actors/` contains pure domain `update()` functions for settings, chat, project, agent, preview, and WebContainer state.
+- `src/runtime/` interprets effects for localStorage, IndexedDB, WebContainer, LLM requests, timers, and DOM messaging.
+- `src/main.tsx` is only the React entrypoint.
+
+See [`docs/architecture.md`](docs/architecture.md) for details.
+
 ## Project management
 
 Build stores anonymous projects in browser IndexedDB. Projects auto-save after edits. Use the project controls in the sidebar to rename the current project with the pencil button, create a new project with the plus button, or open the Projects modal with the folder button to switch/delete projects.
@@ -45,6 +58,8 @@ Project storage includes source files, selected file, chat history, and project 
 ## Model settings
 
 Build opens the model settings modal on first load if no model is configured. OpenRouter is the default provider. Use the gear button beside the app title to change provider, model, API key, or Ollama URL.
+
+Agent requests are canceled by the app after 5 minutes. This timeout is controlled in the app runtime, not by the selected model/provider. Providers may still enforce their own independent limits.
 
 ## Local Ollama
 

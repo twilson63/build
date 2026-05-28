@@ -20,7 +20,11 @@ pub fn init_app_loads_project_test() {
   let #(next, effects) = update.update(model.init(), msg.InitApp)
 
   assert next == model.init()
-  assert effects == [effect.Project(project.LoadInitialProject)]
+  assert effects
+    == [
+      effect.Settings(settings.LoadSettings),
+      effect.Project(project.LoadInitialProject),
+    ]
 }
 
 pub fn project_ready_boots_webcontainer_test() {

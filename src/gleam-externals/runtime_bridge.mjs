@@ -92,4 +92,12 @@ export function dispatchAgentFailed(requestId, message) { sendMsg(Msg.Msg$Agent(
 export function dispatchAgentTick(now) { sendMsg(Msg.Msg$Agent(Agent.Msg$AgentElapsedTick(now))) }
 export function dispatchNewProjectConfirmed() { sendMsg(Msg.Msg$NewProjectConfirmed()) }
 export function dispatchRemoveProjectConfirmed(id) { sendMsg(Msg.Msg$RemoveProjectConfirmed(id)) }
+export function dispatchSettingsLoaded(settings) {
+  sendMsg(Msg.Msg$Settings(Settings.Msg$SettingsLoaded(
+    settings.provider ?? 'openrouter',
+    settings.apiKey ?? settings.api_key ?? '',
+    settings.ollamaUrl ?? settings.ollama_url ?? 'http://localhost:11434',
+    settings.model ?? '',
+  )))
+}
 export function dispatchSettingsStatus(status) { sendMsg(Msg.Msg$Settings(Settings.Msg$ConnectionStatusChanged(status))) }

@@ -1,0 +1,12 @@
+export function postInspectorMessage(message) {
+  if (typeof document === 'undefined') return
+  const payload = { type: message }
+  let attempts = 0
+  const send = () => {
+    const iframe = document.querySelector('iframe[title="preview"]')
+    iframe?.contentWindow?.postMessage(payload, '*')
+    attempts += 1
+    if (attempts < 12) setTimeout(send, 250)
+  }
+  send()
+}

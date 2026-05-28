@@ -1,0 +1,101 @@
+import build/actors/chat
+import build/actors/project
+import build/pure/templates
+import gleam/option
+
+pub fn interpret(effect: project.Effect) -> Nil {
+  case effect {
+    project.LoadInitialProject -> load_initial_project()
+    project.SaveCurrentProject(
+      name,
+      files,
+      messages,
+      selected_path,
+      current_project_id,
+      silent,
+    ) ->
+      save_current_project(
+        name,
+        files,
+        messages,
+        selected_path,
+        option.unwrap(current_project_id, ""),
+        silent,
+      )
+    project.CreateProject(name, files, messages, selected_path) ->
+      create_project(name, files, messages, selected_path)
+    project.OpenProject(id) -> open_project(id)
+    project.DeleteProject(id) -> delete_project(id)
+    project.RefreshProjectList -> refresh_project_list()
+    project.PersistCurrentProjectId(id) ->
+      persist_current_project_id(option.unwrap(id, ""))
+    project.WriteFileToContainer(path, content) ->
+      write_file_to_container(path, content)
+    project.RemountProject(_) -> remount_project()
+    project.ScheduleSave(
+      delay,
+      name,
+      files,
+      messages,
+      selected_path,
+      current_project_id,
+    ) ->
+      schedule_save(
+        delay,
+        name,
+        files,
+        messages,
+        selected_path,
+        option.unwrap(current_project_id, ""),
+      )
+  }
+}
+
+@external(javascript, "../../gleam-externals/projects.mjs", "loadInitialProject")
+fn load_initial_project() -> Nil
+
+@external(javascript, "../../gleam-externals/projects.mjs", "saveCurrentProject")
+fn save_current_project(
+  name: String,
+  files: List(templates.ProjectFile),
+  messages: List(chat.Message),
+  selected_path: String,
+  current_project_id: String,
+  silent: Bool,
+) -> Nil
+
+@external(javascript, "../../gleam-externals/projects.mjs", "createProject")
+fn create_project(
+  name: String,
+  files: List(templates.ProjectFile),
+  messages: List(chat.Message),
+  selected_path: String,
+) -> Nil
+
+@external(javascript, "../../gleam-externals/projects.mjs", "openProject")
+fn open_project(id: String) -> Nil
+
+@external(javascript, "../../gleam-externals/projects.mjs", "deleteProject")
+fn delete_project(id: String) -> Nil
+
+@external(javascript, "../../gleam-externals/projects.mjs", "refreshProjectList")
+fn refresh_project_list() -> Nil
+
+@external(javascript, "../../gleam-externals/projects.mjs", "persistCurrentProjectId")
+fn persist_current_project_id(id: String) -> Nil
+
+@external(javascript, "../../gleam-externals/webcontainer.mjs", "writeFileToContainer")
+fn write_file_to_container(path: String, content: String) -> Nil
+
+@external(javascript, "../../gleam-externals/webcontainer.mjs", "remountProject")
+fn remount_project() -> Nil
+
+@external(javascript, "../../gleam-externals/projects.mjs", "scheduleSave")
+fn schedule_save(
+  delay: Int,
+  name: String,
+  files: List(templates.ProjectFile),
+  messages: List(chat.Message),
+  selected_path: String,
+  current_project_id: String,
+) -> Nil

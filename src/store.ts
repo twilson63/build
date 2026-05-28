@@ -1,4 +1,3 @@
-import { useSyncExternalStore } from 'react'
 import type { AgentProvider, ChatMessage } from './agent'
 import { summarizeSelectedElement } from './preview-inspector'
 import type { ProjectFile } from './templates'
@@ -238,13 +237,5 @@ export function createStore(adapters?: RuntimeAdapters) {
 }
 
 export const store = createStore()
-
-export function useAppStore(): AppState {
-  return useSyncExternalStore(store.subscribe, store.getState)
-}
-
-export function useDispatch(): (msg: AppMsg) => void {
-  return store.dispatch
-}
 
 export function providerLabel(provider: AgentProvider) { return provider }

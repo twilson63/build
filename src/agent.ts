@@ -8,7 +8,7 @@ export type AgentPatch = { path: string; content: string }
 export type AgentResult = { reply: string; patches: AgentPatch[] }
 
 const SYSTEM_PROMPT = `You are an app-building agent inside a browser-only StackBlitz WebContainer.
-Return ONLY valid JSON with this exact shape: {"reply":"short user-facing summary","patches":[{"path":"src/App.tsx","content":"full file content"}]}.
+Return ONLY valid JSON with this exact shape: {"reply":"short user-facing summary","patches":[{"path":"src/main.tsx","content":"full file content"}]}.
 Rules:
 - Modify files by returning full replacement contents.
 - Prefer Vite + React + TypeScript.

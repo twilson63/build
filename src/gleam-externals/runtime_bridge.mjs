@@ -125,4 +125,6 @@ export async function dispatchPreviewElementSelected(element) {
 export async function dispatchAgentSucceeded(requestId, reply, patches) { const { toList, Msg, Agent } = await loadModules(); sendMsg(Msg.Msg$Agent(Agent.Msg$AgentRequestSucceeded(requestId, reply, toList((patches ?? []).map(p => Agent.Patch$Patch(p.path, p.content)))))) }
 export async function dispatchAgentFailed(requestId, message) { const { Msg, Agent } = await loadModules(); sendMsg(Msg.Msg$Agent(Agent.Msg$AgentRequestFailed(requestId, message))) }
 export async function dispatchAgentTick(now) { const { Msg, Agent } = await loadModules(); sendMsg(Msg.Msg$Agent(Agent.Msg$AgentElapsedTick(now))) }
+export async function dispatchNewProjectConfirmed() { const { Msg } = await loadModules(); sendMsg(Msg.Msg$NewProjectConfirmed()) }
+export async function dispatchRemoveProjectConfirmed(id) { const { Msg } = await loadModules(); sendMsg(Msg.Msg$RemoveProjectConfirmed(id)) }
 export async function dispatchSettingsStatus(status) { const { Msg, Settings } = await loadModules(); sendMsg(Msg.Msg$Settings(Settings.Msg$ConnectionStatusChanged(status))) }

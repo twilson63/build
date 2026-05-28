@@ -56,7 +56,7 @@ pub fn improve_selected_element_starts_agent_test() {
       settings: configured_settings,
       preview: preview.State(
         ..preview.init(),
-        selected_element: Ok(selected),
+        selected_element: option.Some(selected),
         element_comment: "Make it calmer",
       ),
       webcontainer: webcontainer.State(
@@ -122,6 +122,8 @@ pub fn save_and_new_project_emit_effects_test() {
       )),
     ])
   assert update.update(app, msg.NewProject)
+    == #(app, [effect.ConfirmNewProject])
+  assert update.update(app, msg.NewProjectConfirmed)
     == #(app, [
       effect.Project(project.CreateProject(
         name: "Untitled Project",
@@ -136,6 +138,8 @@ pub fn open_remove_and_export_project_emit_effects_test() {
   assert update.update(model.init(), msg.OpenProject("p1"))
     == #(model.init(), [effect.Project(project.OpenProject("p1"))])
   assert update.update(model.init(), msg.RemoveProject("p1"))
+    == #(model.init(), [effect.ConfirmRemoveProject("p1")])
+  assert update.update(model.init(), msg.RemoveProjectConfirmed("p1"))
     == #(model.init(), [effect.Project(project.DeleteProject("p1"))])
   assert update.update(model.init(), msg.ExportZip)
     == #(model.init(), [effect.ExportZip(model.init().project.files)])

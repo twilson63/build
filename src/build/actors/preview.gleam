@@ -1,4 +1,5 @@
 import build/pure/preview_inspector.{type SelectedPreviewElement}
+import gleam/option.{type Option}
 
 pub type InspectorMessage {
   BuildInspectorEnable
@@ -9,7 +10,7 @@ pub type State {
   State(
     preview_url: String,
     selecting_element: Bool,
-    selected_element: Result(SelectedPreviewElement, Nil),
+    selected_element: Option(SelectedPreviewElement),
     element_comment: String,
   )
 }
@@ -30,7 +31,7 @@ pub fn init() -> State {
   State(
     preview_url: "",
     selecting_element: False,
-    selected_element: Error(Nil),
+    selected_element: option.None,
     element_comment: "",
   )
 }
@@ -46,26 +47,28 @@ pub fn update(state: State, msg: Msg) -> #(State, List(Effect)) {
     )
     ElementSelectToggled -> {
       let selecting = !state.selecting_element
-      #(
-        State(..state, selecting_element: selecting),
-        [PostInspectorMessage(case selecting {
+      #(State(..state, selecting_element: selecting), [
+        PostInspectorMessage(case selecting {
           True -> BuildInspectorEnable
           False -> BuildInspectorDisable
-        })],
-      )
+        }),
+      ])
     }
     ElementSelected(element) -> #(
       State(
         ..state,
-        selected_element: Ok(element),
+        selected_element: option.Some(element),
         element_comment: "",
         selecting_element: False,
       ),
       [PostInspectorMessage(BuildInspectorDisable)],
     )
-    ElementCommentChanged(comment) -> #(State(..state, element_comment: comment), [])
+    ElementCommentChanged(comment) -> #(
+      State(..state, element_comment: comment),
+      [],
+    )
     ElementCleared -> #(
-      State(..state, selected_element: Error(Nil), element_comment: ""),
+      State(..state, selected_element: option.None, element_comment: ""),
       [],
     )
   }

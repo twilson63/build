@@ -14,8 +14,16 @@ pub fn interpret(effect: effect.Effect) -> Nil {
     effect.Preview(payload) -> preview.interpret(payload)
     effect.WebContainer(payload) -> webcontainer.interpret(payload)
     effect.ExportZip(files) -> zip.export_zip(files)
+    effect.ConfirmNewProject -> confirm_new_project()
+    effect.ConfirmRemoveProject(id) -> confirm_remove_project(id)
   }
 }
+
+@external(javascript, "../gleam-externals/browser.mjs", "confirmNewProject")
+fn confirm_new_project() -> Nil
+
+@external(javascript, "../gleam-externals/browser.mjs", "confirmRemoveProject")
+fn confirm_remove_project(id: String) -> Nil
 
 pub fn interpret_all(effects: List(effect.Effect)) -> Nil {
   case effects {

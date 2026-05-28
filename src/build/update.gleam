@@ -16,6 +16,7 @@ pub fn update(
   message: msg.Msg,
 ) -> #(model.Model, List(effect.Effect)) {
   case message {
+    msg.NoOp -> #(app, [])
     msg.InitApp -> #(app, [effect.Project(project.LoadInitialProject)])
     msg.SaveSettings -> #(
       model.Model(
@@ -34,7 +35,8 @@ pub fn update(
         silent: silent,
       )),
     ])
-    msg.NewProject -> {
+    msg.NewProject -> #(app, [effect.ConfirmNewProject])
+    msg.NewProjectConfirmed -> {
       let #(agent_state, agent_effects) =
         agent.update(app.agent, agent.AgentRequestCanceled)
       #(
@@ -77,7 +79,10 @@ pub fn update(
         ]),
       )
     }
-    msg.RemoveProject(id) -> #(app, [effect.Project(project.DeleteProject(id))])
+    msg.RemoveProject(id) -> #(app, [effect.ConfirmRemoveProject(id)])
+    msg.RemoveProjectConfirmed(id) -> #(app, [
+      effect.Project(project.DeleteProject(id)),
+    ])
     msg.Settings(settings_msg) -> {
       let #(state, effects) = settings.update(app.settings, settings_msg)
       #(model.Model(..app, settings: state), list.map(effects, effect.Settings))
@@ -223,25 +228,33 @@ fn with_auto_save(
   }
 }
 
+fn can_submit_prompt(app: model.Model) -> Bool {
+  app.chat.prompt != ""
+  && !agent.is_running(app.agent)
+  && !webcontainer.is_busy(app.webcontainer)
+}
+
+fn can_improve_selected_element(app: model.Model) -> Bool {
+  app.preview.element_comment != ""
+  && !agent.is_running(app.agent)
+  && !webcontainer.is_busy(app.webcontainer)
+}
+
+fn settings_missing(app: model.Model) -> Bool {
+  app.settings.model == ""
+  || {
+    app.settings.provider == settings.OpenRouter && app.settings.api_key == ""
+  }
+}
+
 fn improve_selected_element(
   app: model.Model,
   request_id: String,
   now: Int,
 ) -> #(model.Model, List(effect.Effect)) {
-  case
-    app.preview.selected_element,
-    app.preview.element_comment == ""
-    || agent.is_running(app.agent)
-    || webcontainer.is_busy(app.webcontainer)
-  {
-    Ok(selected), False ->
-      case
-        app.settings.model == ""
-        || {
-          app.settings.provider == settings.OpenRouter
-          && app.settings.api_key == ""
-        }
-      {
+  case app.preview.selected_element, can_improve_selected_element(app) {
+    option.Some(selected), True ->
+      case settings_missing(app) {
         True -> #(
           model.Model(
             ..app,
@@ -288,20 +301,10 @@ fn submit_prompt(
   request_id: String,
   now: Int,
 ) -> #(model.Model, List(effect.Effect)) {
-  case
-    app.chat.prompt == ""
-    || agent.is_running(app.agent)
-    || webcontainer.is_busy(app.webcontainer)
-  {
-    True -> #(app, [])
-    False ->
-      case
-        app.settings.model == ""
-        || {
-          app.settings.provider == settings.OpenRouter
-          && app.settings.api_key == ""
-        }
-      {
+  case can_submit_prompt(app) {
+    False -> #(app, [])
+    True ->
+      case settings_missing(app) {
         True -> #(
           model.Model(
             ..app,

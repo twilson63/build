@@ -1,5 +1,6 @@
 import build/actors/chat
 import build/msg
+import gleam/dynamic/decode
 import gleam/int
 import gleam/list
 import lustre/attribute
@@ -41,6 +42,7 @@ pub fn view(
       [
         attribute.placeholder("Describe the app change you want..."),
         event.on_input(fn(value) { msg.Chat(chat.PromptChanged(value)) }),
+        event.on("keydown", submit_shortcut_decoder()),
       ],
       prompt,
     ),
@@ -90,6 +92,16 @@ pub fn view(
       ),
     ]),
   ])
+}
+
+fn submit_shortcut_decoder() {
+  use key <- decode.field("key", decode.string)
+  use ctrl <- decode.field("ctrlKey", decode.bool)
+  use meta <- decode.field("metaKey", decode.bool)
+  case key == "Enter" && { ctrl || meta } {
+    True -> decode.success(msg.SubmitPrompt("gleam-request", 0))
+    False -> decode.success(msg.NoOp)
+  }
 }
 
 fn message_view(message: chat.Message, index: Int) -> Element(msg.Msg) {

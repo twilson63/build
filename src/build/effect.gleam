@@ -12,4 +12,6 @@ pub type Effect {
   Preview(preview.Effect)
   WebContainer(webcontainer.Effect)
   ExportZip(files: List(templates.ProjectFile))
+  ConfirmNewProject
+  ConfirmRemoveProject(id: String)
 }

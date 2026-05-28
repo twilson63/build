@@ -6,10 +6,12 @@ import build/actors/settings
 import build/actors/webcontainer
 
 pub type Msg {
+  NoOp
   InitApp
   SaveSettings
   SaveProject(silent: Bool)
   NewProject
+  NewProjectConfirmed
   SubmitPrompt(request_id: String, now: Int)
   ImproveSelectedElement(request_id: String, now: Int)
   CancelAgent
@@ -17,6 +19,7 @@ pub type Msg {
   ExportZip
   OpenProject(String)
   RemoveProject(String)
+  RemoveProjectConfirmed(String)
   Settings(settings.Msg)
   Chat(chat.Msg)
   Project(project.Msg)

@@ -56,6 +56,22 @@ describe('runAgent', () => {
     expect(JSON.parse(String(init.body))).toMatchObject({ model: 'test/model', response_format: { type: 'json_object' } })
   })
 
+  it('retries OpenRouter without JSON mode when provider rejects response_format', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('response_format json_object is not supported by this model', { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content: '{"reply":"ok","patches":[]}' } }],
+      }), { status: 200 }))
+    globalThis.fetch = fetchMock as typeof fetch
+
+    await expect(runAgent({ provider: 'openrouter', apiKey: 'sk-test', model: 'anthropic/claude-sonnet-4.6', userPrompt: 'noop', messages: [], files: [] }))
+      .resolves.toEqual({ reply: 'ok', patches: [] })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ response_format: { type: 'json_object' } })
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).not.toHaveProperty('response_format')
+  })
+
   it('accepts JSON wrapped in a markdown code block', async () => {
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
       message: { content: '```json\n{"reply":"ok","patches":[]}\n```' },

@@ -1,3 +1,11 @@
+export function scrollMessagesToBottom() {
+  if (typeof document === 'undefined') return
+  setTimeout(() => {
+    const messages = document.querySelector('.messages')
+    if (messages) messages.scrollTop = messages.scrollHeight
+  }, 0)
+}
+
 export function postInspectorMessage(message) {
   if (typeof document === 'undefined') return
   const payload = { type: message }

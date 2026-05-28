@@ -93,6 +93,7 @@ pub fn improve_selected_element_starts_agent_test() {
         selected_element: option.Some(selected),
         element_comment: "Make it calmer",
       )),
+      effect.ScrollMessagesToBottom,
     ]
 }
 
@@ -214,6 +215,7 @@ pub fn agent_success_applies_patches_and_replies_test() {
         agent.InstallIfNeeded([agent.Patch("src/main.tsx", "patched")]),
       ),
       effect.Project(project.WriteFileToContainer("src/main.tsx", "patched")),
+      effect.ScrollMessagesToBottom,
       effect.Project(project.ScheduleSave(
         900,
         next.project.project_name,
@@ -268,5 +270,6 @@ pub fn submit_prompt_appends_user_and_starts_agent_test() {
         selected_element: option.None,
         element_comment: "",
       )),
+      effect.ScrollMessagesToBottom,
     ]
 }

@@ -14,4 +14,5 @@ pub type Effect {
   ExportZip(files: List(templates.ProjectFile))
   ConfirmNewProject
   ConfirmRemoveProject(id: String)
+  ScrollMessagesToBottom
 }

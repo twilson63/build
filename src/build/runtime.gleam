@@ -16,8 +16,12 @@ pub fn interpret(effect: effect.Effect) -> Nil {
     effect.ExportZip(files) -> zip.export_zip(files)
     effect.ConfirmNewProject -> confirm_new_project()
     effect.ConfirmRemoveProject(id) -> confirm_remove_project(id)
+    effect.ScrollMessagesToBottom -> scroll_messages_to_bottom()
   }
 }
+
+@external(javascript, "../gleam-externals/dom.mjs", "scrollMessagesToBottom")
+fn scroll_messages_to_bottom() -> Nil
 
 @external(javascript, "../gleam-externals/browser.mjs", "confirmNewProject")
 fn confirm_new_project() -> Nil

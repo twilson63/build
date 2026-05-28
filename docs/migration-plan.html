@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build — Gleam Architecture Migration Plan</title>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface-2: #1a2235;
+    --surface-3: #222d42;
+    --border: #1e2d45;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+    --accent: #f97316;
+    --blue: #3b82f6;
+    --violet: #8b5cf6;
+    --cyan: #06b6d4;
+    --green: #10b981;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --pink: #ec4899;
+    --gleam: #ffaff3;
+    --gleam-dim: rgba(255,175,243,0.12);
+    --gleam-border: rgba(255,175,243,0.25);
+    --lustre: #a78bfa;
+    --lustre-dim: rgba(167,139,250,0.1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 48px 24px; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 56px; }
+  .header .badge { display: inline-block; background: linear-gradient(135deg, var(--gleam), var(--lustre)); color: #1a0a20; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 12px; border-radius: 20px; margin-bottom: 16px; }
+  .header h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 12px; background: linear-gradient(135deg, var(--gleam), var(--lustre)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .header p { color: var(--text-dim); font-size: 1.02rem; max-width: 700px; margin: 0 auto; }
+  .header .sub { color: var(--text-muted); font-size: 0.85rem; margin-top: 8px; font-style: italic; }
+
+  /* Sections */
+  .section { margin-bottom: 48px; }
+  .section h2 { font-size: 1.25rem; font-weight: 750; letter-spacing: -0.02em; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+  .section h2 .icon { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 0.85rem; flex-shrink: 0; }
+  .section h3 { font-size: 1.05rem; font-weight: 650; margin-bottom: 10px; margin-top: 20px; color: var(--text-dim); }
+  .section p { color: var(--text-dim); font-size: 0.92rem; margin-bottom: 12px; }
+  .section ul { color: var(--text-dim); font-size: 0.9rem; padding-left: 20px; margin-bottom: 12px; }
+  .section li { margin-bottom: 4px; }
+
+  /* Callout */
+  .callout { background: var(--gleam-dim); border: 1px solid var(--gleam-border); border-radius: 14px; padding: 18px 22px; margin-bottom: 20px; }
+  .callout strong { color: var(--gleam); }
+  .callout p { margin-bottom: 0; color: var(--text-dim); font-size: 0.9rem; }
+
+  /* Diagram */
+  .diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 0.78rem; line-height: 1.7; overflow-x: auto; white-space: pre; color: var(--text-dim); margin-bottom: 16px; }
+  .diagram .kw { color: var(--violet); }
+  .diagram .fn { color: var(--cyan); }
+  .diagram .type { color: var(--green); }
+  .diagram .gleam-kw { color: var(--gleam); }
+  .diagram .lustre-kw { color: var(--lustre); }
+  .diagram .arrow { color: var(--accent); }
+  .diagram .dim { color: var(--text-muted); }
+
+  /* Code blocks */
+  .code-block { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.78rem; line-height: 1.6; overflow-x: auto; margin-bottom: 16px; color: var(--text-dim); }
+  .code-block .kw { color: var(--violet); }
+  .code-block .fn { color: var(--cyan); }
+  .code-block .type { color: var(--green); }
+  .code-block .str { color: var(--orange); }
+  .code-block .comment { color: var(--text-muted); font-style: italic; }
+  .code-block .gleam-kw { color: var(--gleam); }
+  .code-block .lustre-kw { color: var(--lustre); }
+
+  /* Side-by-side code */
+  .code-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .code-compare .code-col { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; overflow: hidden; }
+  .code-compare .code-col .label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .code-compare .code-col .label.ts { color: var(--blue); }
+  .code-compare .code-col .label.gleam { color: var(--gleam); }
+  .code-compare .code-col pre { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.75rem; line-height: 1.55; color: var(--text-dim); overflow-x: auto; white-space: pre; margin: 0; }
+
+  @media (max-width: 800px) {
+    .code-compare { grid-template-columns: 1fr; }
+  }
+
+  /* Tables */
+  .map-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 16px; font-size: 0.82rem; }
+  .map-table th { background: var(--surface-2); color: var(--text-muted); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  .map-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .map-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .map-table .fname { font-family: 'SF Mono', monospace; font-size: 0.78rem; color: var(--cyan); white-space: nowrap; }
+  .map-table .gleam-name { font-family: 'SF Mono', monospace; font-size: 0.78rem; color: var(--gleam); white-space: nowrap; }
+
+  /* Badges */
+  .badge-sm { display: inline-block; font-size: 0.6rem; font-weight: 700; padding: 2px 7px; border-radius: 5px; text-transform: uppercase; letter-spacing: 0.04em; vertical-align: middle; }
+  .badge-rewrite { background: rgba(255,175,243,0.15); color: var(--gleam); }
+  .badge-delete { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-keep { background: rgba(16,185,129,0.15); color: var(--green); }
+  .badge-ffi { background: rgba(245,158,11,0.15); color: var(--orange); }
+  .badge-component { background: rgba(167,139,250,0.15); color: var(--lustre); }
+
+  /* Steps / phases */
+  .phases { position: relative; padding-left: 28px; }
+  .phase { position: relative; padding: 18px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 14px; }
+  .phase::before { content: attr(data-phase); position: absolute; left: -44px; top: 18px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 0.75rem; font-weight: 800; background: var(--gleam-dim); color: var(--gleam); border: 2px solid var(--gleam-border); }
+  .phase h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .phase h4 .phase-num { color: var(--gleam); font-family: 'SF Mono', monospace; }
+  .phase p { color: var(--text-muted); font-size: 0.82rem; margin-bottom: 8px; }
+  .phase .gate { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; color: var(--green); margin-top: 6px; }
+  .phase .gate::before { content: '✓ Gate: '; font-weight: 700; }
+  .phase .detail { color: var(--text-dim); font-size: 0.8rem; margin-top: 4px; }
+  .phase ul { font-size: 0.8rem; color: var(--text-muted); padding-left: 16px; margin-top: 4px; }
+
+  /* Risks */
+  .risk { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 8px; }
+  .risk-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .risk-sev { font-size: 0.6rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+  .sev-low { background: rgba(16,185,129,0.15); color: var(--green); }
+  .sev-med { background: rgba(245,158,11,0.15); color: var(--orange); }
+  .sev-hi { background: rgba(239,68,68,0.15); color: var(--red); }
+  .risk h4 { font-size: 0.88rem; }
+  .risk p { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 4px; }
+  .risk .mitigation { color: var(--text-dim); font-size: 0.78rem; padding-left: 14px; border-left: 2px solid var(--gleam-border); margin-top: 6px; }
+  .risk .mitigation::before { content: 'Mitigation: '; font-weight: 600; color: var(--gleam); }
+
+  /* Comparison table */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .compare-col { border-radius: 14px; padding: 20px; }
+  .compare-before { background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.15); }
+  .compare-after { background: var(--gleam-dim); border: 1px solid var(--gleam-border); }
+  .compare-col h4 { font-size: 0.95rem; margin-bottom: 14px; }
+  .compare-before h4 { color: var(--red); }
+  .compare-after h4 { color: var(--gleam); }
+  .compare-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.82rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .compare-row:last-child { border-bottom: none; }
+  .compare-row .label { color: var(--text-muted); }
+  .compare-row .val { font-weight: 700; font-family: 'SF Mono', monospace; font-size: 0.8rem; }
+
+  @media (max-width: 700px) {
+    .compare-grid { grid-template-columns: 1fr; }
+    .phases { padding-left: 18px; }
+    .phase::before { left: -34px; width: 24px; height: 24px; font-size: 0.65rem; }
+  }
+
+  /* Collapsible */
+  details { margin-bottom: 10px; }
+  details summary { cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--text-dim); padding: 8px 0; list-style: none; display: flex; align-items: center; gap: 8px; }
+  details summary::before { content: '▸'; color: var(--gleam); transition: transform 0.2s; font-size: 0.7rem; }
+  details[open] summary::before { transform: rotate(90deg); }
+  details summary:hover { color: var(--text); }
+  details .detail-content { padding-left: 18px; }
+
+  /* Tabs */
+  .tab-bar { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab-btn { padding: 8px 18px; border-radius: 10px; font-size: 0.8rem; font-weight: 700; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-muted); transition: all 0.2s; }
+  .tab-btn:hover { border-color: var(--text-muted); color: var(--text-dim); }
+  .tab-btn.active { border-color: var(--gleam); color: var(--gleam); background: var(--gleam-dim); box-shadow: 0 0 0 3px rgba(255,175,243,0.1); }
+  .tab-panel { display: none; animation: fadeIn 0.25s ease; }
+  .tab-panel.visible { display: block; }
+
+  /* Plugin card */
+  .plugin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .plugin-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .plugin-card .tag { font-family: 'SF Mono', monospace; font-size: 0.78rem; color: var(--lustre); font-weight: 600; margin-bottom: 4px; }
+  .plugin-card .desc { font-size: 0.78rem; color: var(--text-muted); }
+  .plugin-card.core { border-color: var(--gleam-border); background: var(--gleam-dim); }
+  .plugin-card.future { border-color: rgba(245,158,11,0.2); background: rgba(245,158,11,0.04); }
+
+  /* Interop section */
+  .interop-flow { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; font-family: 'SF Mono', monospace; font-size: 0.78rem; line-height: 1.7; overflow-x: auto; white-space: pre; color: var(--text-dim); margin-bottom: 16px; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Footer */
+  .footer { text-align: center; color: var(--text-muted); font-size: 0.75rem; margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ═══════════════ HEADER ═══════════════ -->
+  <div class="header">
+    <div class="badge">Migration Plan</div>
+    <h1>Gleam Architecture Migration</h1>
+    <p>Build goes from React monolith to Gleam actors + Lustre components — with 1:1 feature, look, and feel parity.</p>
+    <div class="sub">Same URL. Same experience. Architecture upgrade, not rewrite.</div>
+  </div>
+
+  <!-- ═══════════════ 1. MIGRATION GOAL ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--gleam);color:#1a0a20">1</span> Migration Goal</h2>
+    <div class="callout">
+      <strong>One-to-one parity.</strong> Open the React version and the Gleam version side by side — you should not be able to tell the difference. Same CSS, same layout, same interactions, same timing. This is an architecture upgrade, not a rewrite.
+    </div>
+    <p>The Gleam migration is not about changing what Build does. It's about changing how Build is built. Every feature, every pixel, every interaction must survive the migration intact.</p>
+    <ul>
+      <li><strong>Visual parity</strong> — Screenshot comparison passes. Same CSS class names, same DOM structure, same layout.</li>
+      <li><strong>Feature parity</strong> — Every interaction works identically: agent calls, project CRUD, file editing, terminal, preview inspector, auto-save, settings.</li>
+      <li><strong>Performance parity</strong> — No regressions. xterm streaming, CodeMirror responsiveness, WebContainer boot time.</li>
+      <li><strong>URL parity</strong> — Same URL, same deployment target. Swap the JS bundle, nothing else changes.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════ 2. ARCHITECTURE OVERVIEW ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--gleam);color:#1a0a20">2</span> Architecture Overview</h2>
+
+    <h3>Domain Actors</h3>
+    <p>Six self-contained modules, each owning state, messages, and effects. Pure <code style="color:var(--cyan)">update()</code> functions. No side effects in state transitions.</p>
+    <div class="diagram"><span class="gleam-kw">┌─────────────────────────────────────────────────────────┐</span>
+<span class="gleam-kw">│</span>                      <span class="fn">App Runtime</span>                        <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  ┌──────────┐  ┌───────────┐  ┌───────────┐            <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │ <span class="type">Settings</span> │  │  <span class="type">Project</span>  │  │  <span class="type">Preview</span>  │            <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │  Actor   │  │   Actor   │  │  Actor    │            <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │          │  │           │  │           │            <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │ State    │  │ State     │  │ State     │            <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │ Msg      │  │ Msg       │  │ Msg       │            <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │ Effect   │  │ Effect    │  │ Effect    │            <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  └────┬─────┘  └─────┬─────┘  └─────┬─────┘            <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>       │               │               │              <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  ┌────┴───────────────┴───────────────┴─────┐         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │              <span class="type">Agent</span> <span class="type">Actor</span>                  │         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │  State · Msg · Effect                    │         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  └────────────────┬─────────────────────────┘         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>                   │                                   <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  ┌────────────────┴─────────────────────────┐         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │           <span class="type">WebContainer</span> <span class="type">Actor</span>              │         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │  State · Msg · Effect                    │         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  └──────────────────────────────────────────┘         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>                                                        <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  ┌──────────────────────────────────────────┐         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │           <span class="fn">Effect Runtime</span>                  │         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  │  Interprets Effect[] → real side effects  │         <span class="gleam-kw">│</span>
+<span class="gleam-kw">│</span>  └──────────────────────────────────────────┘         <span class="gleam-kw">│</span>
+<span class="gleam-kw">└─────────────────────────────────────────────────────────┘</span></div>
+
+    <h3>Lustre Component Tree</h3>
+    <p>Lustre custom elements compose the UI. Each <code style="color:var(--lustre)">&lt;build-*&gt;</code> is a self-contained web component with typed attributes and events.</p>
+    <div class="diagram"><span class="lustre-kw">┌──────────────────────────────────────────────────────────────┐</span>
+<span class="lustre-kw">│</span>  <span class="lustre-kw">&lt;build-app&gt;</span>  <span class="dim">← Lustre application shell (light DOM)</span>           <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>  ┌────────────────────────────────────────────────────────┐  <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>  │  <span class="lustre-kw">&lt;build-project-nav&gt;</span>  <span class="dim">← project list, CRUD</span>                  │  <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>  └────────────────────────────────────────────────────────┘  <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>  │ <span class="lustre-kw">&lt;build-editor&gt;</span>│  │ <span class="lustre-kw">&lt;build-preview&gt;</span>│  │ <span class="lustre-kw">&lt;build-agent-chat&gt;</span>│  <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>  │ <span class="dim">CodeMirror 6</span>  │  │ <span class="dim">iframe mgmt</span>   │  │ <span class="dim">messages, prompt</span> │  <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>  └──────────────┘  │              │  └──────────────────┘  <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>                    │ <span class="lustre-kw">&lt;build-element</span> │                        <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>                    │ <span class="dim">picker</span> overlay  │                        <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>                    └──────────────┘                        <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>  ┌────────────────────────────────────────────────────────┐  <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>  │  <span class="lustre-kw">&lt;build-terminal&gt;</span>  <span class="dim">← xterm.js streaming</span>                     │  <span class="lustre-kw">│</span>
+<span class="lustre-kw">│</span>  └────────────────────────────────────────────────────────┘  <span class="lustre-kw">│</span>
+<span class="lustre-kw">└──────────────────────────────────────────────────────────────┘</span></div>
+
+    <h3>Effect System Data Flow</h3>
+    <div class="diagram">  <span class="dim">User Event</span>
+      │
+      ▼
+  <span class="fn">dispatch</span>(<span class="type">Msg</span>)  <span class="dim">← typed discriminated union</span>
+      │
+      ▼
+  <span class="fn">update</span>(state, msg) → [<span class="type">State</span>, <span class="type">Effect</span>[]]  <span class="dim">← pure function, no side effects</span>
+      │
+      ▼
+  <span class="fn">Effect Runtime</span>  <span class="dim">← interprets Effect[]</span>
+      │
+      ├── <span class="type">call_agent</span> → API call → <span class="fn">dispatch</span>(AgentRequestSucceeded)
+      ├── <span class="type">persist_settings</span> → localStorage write
+      ├── <span class="type">boot_container</span> → WebContainer API
+      ├── <span class="type">post_inspector_message</span> → iframe postMessage
+      └── <span class="type">write_file_to_container</span> → WebContainer fs
+      │
+      ▼
+  <span class="fn">dispatch</span>(new <span class="type">Msg</span>)  <span class="dim">← effect callbacks feed back into the loop</span>
+      │
+      ▼
+  <span class="lustre-kw">Lustre</span> re-renders  <span class="dim">← from composed state snapshot</span></div>
+  </div>
+
+  <!-- ═══════════════ 3. COMPONENT MAPPING ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--gleam);color:#1a0a20">3</span> Component Mapping</h2>
+    <p>Every React file accounted for. Nothing left behind, nothing invented.</p>
+
+    <table class="map-table">
+      <thead>
+        <tr>
+          <th>React / TypeScript</th>
+          <th>Gleam / Lustre Equivalent</th>
+          <th>Action</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="fname">main.tsx</td>
+          <td class="gleam-name">—</td>
+          <td><span class="badge-sm badge-delete">DELETE</span></td>
+          <td>545-line monolith. Logic → actors + runtime. JSX → Lustre view.</td>
+        </tr>
+        <tr>
+          <td class="fname">App.tsx (new shell)</td>
+          <td class="gleam-name">app.gleam</td>
+          <td><span class="badge-sm badge-rewrite">REWRITE</span></td>
+          <td>Thin Lustre application shell. Reads composed state, dispatches messages.</td>
+        </tr>
+        <tr>
+          <td class="fname">CodeEditor.tsx</td>
+          <td class="gleam-name">build_editor.gleam</td>
+          <td><span class="badge-sm badge-component">COMPONENT</span></td>
+          <td>Lustre custom element wrapping vanilla CodeMirror 6 (not React wrapper).</td>
+        </tr>
+        <tr>
+          <td class="fname">TerminalPanel.tsx</td>
+          <td class="gleam-name">build_terminal.gleam</td>
+          <td><span class="badge-sm badge-component">COMPONENT</span></td>
+          <td>Lustre custom element wrapping xterm.js.</td>
+        </tr>
+        <tr>
+          <td class="fname">agent.ts</td>
+          <td class="gleam-name">ffi/agent.js</td>
+          <td><span class="badge-sm badge-ffi">FFI</span></td>
+          <td>runAgent() stays as JS. Gleam calls via FFI binding.</td>
+        </tr>
+        <tr>
+          <td class="fname">projects.ts</td>
+          <td class="gleam-name">ffi/projects.js</td>
+          <td><span class="badge-sm badge-ffi">FFI</span></td>
+          <td>IndexedDB functions stay as JS. Project actor's runtime calls them.</td>
+        </tr>
+        <tr>
+          <td class="fname">webcontainer.ts</td>
+          <td class="gleam-name">ffi/webcontainer.js</td>
+          <td><span class="badge-sm badge-ffi">FFI</span></td>
+          <td>boot/mount/install stay as JS. WebContainer actor's runtime calls them.</td>
+        </tr>
+        <tr>
+          <td class="fname">templates.ts</td>
+          <td class="gleam-name">templates.gleam</td>
+          <td><span class="badge-sm badge-rewrite">REWRITE</span></td>
+          <td>Pure data/functions. Port to native Gleam — no FFI needed.</td>
+        </tr>
+        <tr>
+          <td class="fname">preview-inspector.ts</td>
+          <td class="gleam-name">preview_inspector.gleam</td>
+          <td><span class="badge-sm badge-rewrite">REWRITE</span></td>
+          <td>Pure types/functions. Port to native Gleam.</td>
+        </tr>
+        <tr>
+          <td class="fname">design-guidance.ts</td>
+          <td class="gleam-name">design_guidance.gleam</td>
+          <td><span class="badge-sm badge-rewrite">REWRITE</span></td>
+          <td>Pure function. Port to native Gleam.</td>
+        </tr>
+        <tr>
+          <td class="fname">editor.ts</td>
+          <td class="gleam-name">editor.gleam</td>
+          <td><span class="badge-sm badge-rewrite">REWRITE</span></td>
+          <td>Pure function. Port to native Gleam.</td>
+        </tr>
+        <tr>
+          <td class="fname">zip.ts</td>
+          <td class="gleam-name">ffi/zip.js</td>
+          <td><span class="badge-sm badge-ffi">FFI</span></td>
+          <td>Uses JSZip. Keep as JS FFI binding.</td>
+        </tr>
+        <tr>
+          <td class="fname">styles.css</td>
+          <td class="gleam-name">styles.css</td>
+          <td><span class="badge-sm badge-keep">KEEP AS-IS</span></td>
+          <td>Copied verbatim. Lustre renders real DOM with real class names.</td>
+        </tr>
+        <tr>
+          <td class="fname">— (19 useState)</td>
+          <td class="gleam-name">6 actor modules</td>
+          <td><span class="badge-sm badge-rewrite">REWRITE</span></td>
+          <td>settings.gleam, project.gleam, chat.gleam, agent.gleam, preview.gleam, webcontainer.gleam</td>
+        </tr>
+        <tr>
+          <td class="fname">— (3 useRef)</td>
+          <td class="gleam-name">effect runtime</td>
+          <td><span class="badge-sm badge-rewrite">REWRITE</span></td>
+          <td>AbortController, timers, refs → managed by effect runtime, not React.</td>
+        </tr>
+        <tr>
+          <td class="fname">— (7 useEffect)</td>
+          <td class="gleam-name">effect runtime + Lustre</td>
+          <td><span class="badge-sm badge-rewrite">REWRITE</span></td>
+          <td>Side effects become typed Effect values interpreted by runtime.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>New Gleam-Only Files</h3>
+    <table class="map-table">
+      <thead>
+        <tr><th>Gleam Module</th><th>Responsibility</th><th>Lines (est.)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="gleam-name">actors/settings.gleam</td><td>Settings state, msgs, effects, update()</td><td>~100</td></tr>
+        <tr><td class="gleam-name">actors/project.gleam</td><td>Project state, msgs, effects, update()</td><td>~120</td></tr>
+        <tr><td class="gleam-name">actors/chat.gleam</td><td>Chat state, msgs, update() — no effects</td><td>~60</td></tr>
+        <tr><td class="gleam-name">actors/agent.gleam</td><td>Agent lifecycle state machine, msgs, effects, update()</td><td>~100</td></tr>
+        <tr><td class="gleam-name">actors/preview.gleam</td><td>Preview state, element selection, msgs, effects, update()</td><td>~80</td></tr>
+        <tr><td class="gleam-name">actors/webcontainer.gleam</td><td>Boot phase state machine, msgs, effects, update()</td><td>~100</td></tr>
+        <tr><td class="gleam-name">app.gleam</td><td>AppState composition, AppMsg union, appUpdate()</td><td>~150</td></tr>
+        <tr><td class="gleam-name">runtime.gleam</td><td>Effect interpreter dispatcher</td><td>~80</td></tr>
+        <tr><td class="gleam-name">runtime/settings.gleam</td><td>Settings effect interpreter</td><td>~40</td></tr>
+        <tr><td class="gleam-name">runtime/project.gleam</td><td>Project effect interpreter</td><td>~60</td></tr>
+        <tr><td class="gleam-name">runtime/agent.gleam</td><td>Agent effect interpreter</td><td>~80</td></tr>
+        <tr><td class="gleam-name">runtime/preview.gleam</td><td>Preview effect interpreter</td><td>~40</td></tr>
+        <tr><td class="gleam-name">runtime/webcontainer.gleam</td><td>WebContainer effect interpreter</td><td>~70</td></tr>
+        <tr><td class="gleam-name">components/build_editor.gleam</td><td>Lustre custom element — CodeMirror 6</td><td>~90</td></tr>
+        <tr><td class="gleam-name">components/build_terminal.gleam</td><td>Lustre custom element — xterm.js</td><td>~80</td></tr>
+        <tr><td class="gleam-name">components/build_preview.gleam</td><td>Lustre component — iframe</td><td>~60</td></tr>
+        <tr><td class="gleam-name">components/build_agent_chat.gleam</td><td>Lustre component — chat panel</td><td>~80</td></tr>
+        <tr><td class="gleam-name">components/build_project_nav.gleam</td><td>Lustre component — project CRUD</td><td>~70</td></tr>
+        <tr><td class="gleam-name">components/build_element_picker.gleam</td><td>Lustre component — element selection</td><td>~50</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════ 4. CSS STRATEGY ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--gleam);color:#1a0a20">4</span> CSS Strategy</h2>
+
+    <div class="callout">
+      <strong>styles.css is copied verbatim.</strong> No CSS-in-JS, no CSS modules, no shadow DOM styles. Lustre renders real DOM with real class names — the existing CSS works as-is.
+    </div>
+
+    <h3>Why Light DOM</h3>
+    <p>Lustre's <code style="color:var(--lustre)">register()</code> creates web components with shadow DOM by default. For Build, we use <strong>light DOM</strong> components instead. Reason:</p>
+    <ul>
+      <li><strong>Shadow DOM isolates styles.</strong> The existing styles.css targets <code>.app</code>, <code>.sidebar</code>, <code>.editor</code>, etc. These selectors would not pierce shadow DOM boundaries.</li>
+      <li><strong>Light DOM keeps CSS working.</strong> All existing class-based selectors continue to match elements inside <code>&lt;build-*&gt;</code> custom elements.</li>
+      <li><strong>No style duplication.</strong> We don't need to copy/translate CSS into shadow DOM stylesheets or <code>::part()</code> selectors.</li>
+    </ul>
+
+    <h3>How Light DOM in Lustre</h3>
+    <p>Lustre v5.6 supports light DOM components via <code style="color:var(--lustre)">component.default_slot()</code> and <code style="color:var(--lustre)">component.named_slot()</code> without attaching a shadow root. The custom element registers with the browser but renders its view into its own children — where global CSS applies.</p>
+
+    <div class="code-compare">
+      <div class="code-col">
+        <div class="label ts">Before: React JSX</div>
+        <pre><span class="kw">&lt;div</span> className=<span class="str">"app"</span><span class="kw">&gt;</span>
+  <span class="kw">&lt;div</span> className=<span class="str">"sidebar"</span><span class="kw">&gt;</span>
+    <span class="kw">&lt;div</span> className=<span class="str">"editor"</span><span class="kw">&gt;</span>
+      <span class="fn">{selectedFile</span> &amp;&amp; (
+        <span class="kw">&lt;CodeEditor</span>
+          value={<span class="fn">{selectedFile.content}</span>}
+          onChange={<span class="fn">{handleEdit}</span>}
+        <span class="kw">/&gt;</span>
+      )}<span class="kw">&lt;/div&gt;</span>
+    <span class="kw">&lt;/div&gt;</span>
+  <span class="kw">&lt;/div&gt;</span></pre>
+      </div>
+      <div class="code-col">
+        <div class="label gleam">After: Lustre View</div>
+        <pre><span class="gleam-kw">fn</span> <span class="fn">view</span>(model) {
+  <span class="gleam-kw">let</span> selected = <span class="fn">get_selected_file</span>(model)
+  html.<span class="fn">div</span>([attr.<span class="fn">class</span>(<span class="str">"app"</span>)], [
+    html.<span class="fn">div</span>([attr.<span class="fn">class</span>(<span class="str">"sidebar"</span>)], [
+      html.<span class="fn">div</span>([attr.<span class="fn">class</span>(<span class="str">"editor"</span>)], [
+        <span class="gleam-kw">case</span> selected {
+          <span class="type">Some</span>(file) -&gt; html.<span class="fn">custom</span>(
+            <span class="str">"build-editor"</span>,
+            [attr.<span class="fn">property</span>(<span class="str">"value"</span>, file.content)],
+            [],
+          )
+          <span class="type">None</span> -&gt; html.<span class="fn">text</span>(<span class="str">""</span>)
+        },
+      ]),
+    ]),
+  ])
+}</pre>
+      </div>
+    </div>
+
+    <p>Same class names, same DOM structure. CSS selectors still match. No <code>::part()</code>, no <code>:host()</code>, no shadow DOM style piercings needed.</p>
+  </div>
+
+  <!-- ═══════════════ 5. CODEMIRROR & XTERM INTEROP ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--gleam);color:#1a0a20">5</span> CodeMirror &amp; xterm Interop</h2>
+    <p>The two most complex FFI bindings. Both are vanilla JS libraries that need imperative lifecycle management — exactly what Lustre custom elements are designed for.</p>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <div class="tab-btn active" onclick="showTab('cm', this)">CodeMirror 6</div>
+      <div class="tab-btn" onclick="showTab('xt', this)">xterm.js</div>
+    </div>
+
+    <!-- CodeMirror panel -->
+    <div id="tab-cm" class="tab-panel visible">
+      <h3>build-editor Custom Element</h3>
+      <p>CodeMirror 6 is a vanilla JS library — no React dependency. The current <code style="color:var(--cyan)">CodeEditor.tsx</code> is just 31 lines wrapping <code style="color:var(--cyan)">@uiw/react-codemirror</code>. In Gleam, we use <strong>vanilla CodeMirror 6 directly</strong> inside a Lustre custom element.</p>
+
+      <h3>Attribute/Event Interface</h3>
+      <div class="interop-flow"><span class="lustre-kw">&lt;build-editor&gt;</span>
+  <span class="dim">Attributes (input):</span>
+    <span class="cyan">value</span>        <span class="type">String</span>    <span class="dim">← file content to display</span>
+    <span class="cyan">language</span>     <span class="type">String</span>    <span class="dim">← "javascript" | "html" | "css" | "json"</span>
+    <span class="cyan">readonly</span>     <span class="type">Bool</span>     <span class="dim">← disable editing</span>
+    <span class="cyan">theme</span>        <span class="type">String</span>    <span class="dim">← "dark" (matches existing CSS)</span>
+
+  <span class="dim">Events (output):</span>
+    <span class="orange">change</span>       <span class="type">String</span>    <span class="dim">→ emitted on content change, detail = new value</span>
+    <span class="orange">cursor-change</span> <span class="type">Int</span>      <span class="dim">→ emitted on cursor position change</span>
+
+  <span class="dim">Lifecycle:</span>
+    <span class="gleam-kw">connectedCallback</span>  → create EditorView with extensions
+    <span class="gleam-kw">disconnectedCallback</span> → destroy EditorView
+    <span class="gleam-kw">on_attribute_change</span>("value")  → dispatch EditorView.dispatch(replaceAll)
+    <span class="gleam-kw">on_attribute_change</span>("language") → reload language extension</span></div>
+
+      <h3>FFI Binding Pattern</h3>
+      <div class="code-compare">
+        <div class="code-col">
+          <div class="label ts">TypeScript (before)</div>
+          <pre><span class="comment">// CodeEditor.tsx — React wrapper</span>
+<span class="kw">import</span> CodeMirror
+  <span class="kw">from</span> <span class="str">'@uiw/react-codemirror'</span>
+
+<span class="kw">export function</span> <span class="fn">CodeEditor</span>({
+  value, onChange, language
+}) {
+  <span class="kw">return</span> (
+    &lt;<span class="type">CodeMirror</span>
+      value={value}
+      onChange={onChange}
+      theme=<span class="str">"dark"</span>
+      extensions={[<span class="fn">lang</span>(language)]}
+    /&gt;
+  )
+}</pre>
+        </div>
+        <div class="code-col">
+          <div class="label gleam">Gleam FFI (after)</div>
+          <pre><span class="comment">// ffi/codemirror.js</span>
+<span class="kw">export function</span> <span class="fn">createEditor</span>(
+  container, value, language, theme,
+  onChange
+) {
+  <span class="kw">const</span> view = <span class="kw">new</span> <span class="type">EditorView</span>({
+    state: <span class="type">EditorState</span>.<span class="fn">create</span>({
+      doc: value,
+      extensions: [
+        <span class="fn">getLang</span>(language),
+        <span class="fn">keymap</span>(<span class="fn">defaultKeymap</span>),
+        <span class="type">EditorView</span>.<span class="fn">updateListener</span>.<span class="fn">of</span>(
+          update =&gt; {
+            <span class="kw">if</span> (update.docChanged)
+              onChange(update.state.doc.<span class="fn">toString</span>())
+          }
+        ),
+      ],
+    }),
+    parent: container,
+  })
+  <span class="kw">return</span> view
+}
+
+<span class="kw">export function</span> <span class="fn">destroyEditor</span>(view) {
+  view.<span class="fn">destroy</span>()
+}
+
+<span class="kw">export function</span> <span class="fn">setContent</span>(view, content) {
+  view.<span class="fn">dispatch</span>({
+    changes: {
+      from: 0,
+      to: view.state.doc.length,
+      insert: content,
+    },
+  })
+}</pre>
+        </div>
+      </div>
+
+      <details>
+        <summary>Lustre custom element registration</summary>
+        <div class="detail-content">
+          <div class="code-block"><span class="gleam-kw">pub fn</span> <span class="fn">register_build_editor</span>() {
+  lustre.<span class="fn">register</span>(
+    <span class="str">"build-editor"</span>,
+    <span class="fn">init_editor</span>,
+    <span class="fn">update_editor</span>,
+    <span class="fn">view_editor</span>,
+  )
+  |&gt; component.<span class="fn">on_attribute_change</span>(<span class="str">"value"</span>, <span class="fn">decode_string</span>, <span class="fn">UpdateValue</span>)
+  |&gt; component.<span class="fn">on_attribute_change</span>(<span class="str">"language"</span>, <span class="fn">decode_string</span>, <span class="fn">UpdateLanguage</span>)
+  |&gt; component.<span class="fn">on_property_change</span>(<span class="str">"readonly"</span>, <span class="fn">decode_bool</span>, <span class="fn">SetReadonly</span>)
+  |&gt; lustre.<span class="fn">register_ok</span>()
+}
+
+<span class="gleam-kw">fn</span> <span class="fn">init_editor</span>() {
+  <span class="comment">// Create CodeMirror instance via FFI</span>
+  <span class="gleam-kw">let</span> editor = codemirror_ffi.<span class="fn">create_editor</span>(<span class="str">""</span>, <span class="str">"javascript"</span>, <span class="str">"dark"</span>)
+  #(<span class="type">EditorModel</span>(editor, <span class="str">""</span>, <span class="str">"javascript"</span>), [])
+}
+
+<span class="gleam-kw">fn</span> <span class="fn">update_editor</span>(model, msg) {
+  <span class="gleam-kw">case</span> msg {
+    <span class="type">UpdateValue</span>(new_value) -&gt; {
+      <span class="comment">// Only update if value actually changed (avoid cursor reset)</span>
+      <span class="gleam-kw">let</span> _ = codemirror_ffi.<span class="fn">set_content</span>(model.editor, new_value)
+      #(..model, content: new_value, [])
+    }
+    <span class="type">UpdateLanguage</span>(lang) -&gt; {
+      <span class="gleam-kw">let</span> _ = codemirror_ffi.<span class="fn">reload_language</span>(model.editor, lang)
+      #(..model, language: lang, [])
+    }
+    <span class="type">SetReadonly</span>(ro) -&gt; {
+      <span class="gleam-kw">let</span> _ = codemirror_ffi.<span class="fn">set_readonly</span>(model.editor, ro)
+      #(model, [])
+    }
+    <span class="type">ContentChanged</span>(new_content) -&gt; {
+      <span class="comment">// Emit custom event back to parent</span>
+      #(..model, content: new_content, [
+        effect.<span class="fn">from</span>(<span class="fn">emit_change</span>(new_content))
+      ])
+    }
+  }
+}
+
+<span class="gleam-kw">fn</span> <span class="fn">emit_change</span>(content) {
+  <span class="gleam-kw">fn</span>() {
+    <span class="gleam-kw">let</span> _ = event.<span class="fn">emit</span>(<span class="str">"change"</span>, content)
+    <span class="type">Nil</span>
+  }
+}</div>
+        </div>
+      </details>
+    </div>
+
+    <!-- xterm panel -->
+    <div id="tab-xt" class="tab-panel">
+      <h3>build-terminal Custom Element</h3>
+      <p>xterm.js is imperative by nature — you write to it, you resize it, you attach a FitAddon. Perfect fit for a Lustre custom element with FFI.</p>
+
+      <h3>Attribute/Event Interface</h3>
+      <div class="interop-flow"><span class="lustre-kw">&lt;build-terminal&gt;</span>
+  <span class="dim">Attributes (input):</span>
+    <span class="cyan">logs</span>          <span class="type">List(String)</span>  <span class="dim">← log lines to write</span>
+    <span class="cyan">visible</span>       <span class="type">Bool</span>         <span class="dim">← show/hide terminal panel</span>
+
+  <span class="dim">Methods (imperative, via FFI):</span>
+    <span class="cyan">write</span>          <span class="type">String → Nil</span>  <span class="dim">← write a line to the terminal</span>
+    <span class="cyan">clear</span>          <span class="type">Nil → Nil</span>     <span class="dim">← clear terminal buffer</span>
+    <span class="cyan">fit</span>            <span class="type">Nil → Nil</span>     <span class="dim">← trigger FitAddon.fit()</span>
+
+  <span class="dim">Lifecycle:</span>
+    <span class="gleam-kw">connectedCallback</span>    → create Terminal + FitAddon + attach to container
+    <span class="gleam-kw">disconnectedCallback</span> → dispose Terminal
+    <span class="gleam-kw">on_attribute_change</span>("visible") → show/hide container div
+    <span class="gleam-kw">effect.before_paint</span>  → fit() on resize</span></div>
+
+      <h3>FFI Binding Pattern</h3>
+      <div class="code-compare">
+        <div class="code-col">
+          <div class="label ts">TypeScript (before)</div>
+          <pre><span class="comment">// TerminalPanel.tsx — React</span>
+<span class="kw">const</span> termRef = <span class="fn">useRef</span>(<span class="kw">null</span>)
+<span class="kw">const</span> fitRef  = <span class="fn">useRef</span>(<span class="kw">new</span> <span class="type">FitAddon</span>())
+
+<span class="fn">useEffect</span>(() =&gt; {
+  <span class="kw">if</span> (!termRef.current) <span class="kw">return</span>
+  <span class="kw">const</span> term = <span class="kw">new</span> <span class="type">Terminal</span>()
+  term.<span class="fn">loadAddon</span>(fitRef.current)
+  term.<span class="fn">open</span>(termRef.current)
+  fitRef.current.<span class="fn">fit</span>()
+  <span class="kw">return</span> () =&gt; term.<span class="fn">dispose</span>()
+}, [])
+
+<span class="fn">useEffect</span>(() =&gt; {
+  <span class="kw">const</span> term = termRef.current
+  logs.<span class="fn">forEach</span>(l =&gt; term.<span class="fn">writeln</span>(l))
+}, [logs])</pre>
+        </div>
+        <div class="code-col">
+          <div class="label gleam">Gleam FFI (after)</div>
+          <pre><span class="comment">// ffi/xterm.js</span>
+<span class="kw">export function</span> <span class="fn">createTerminal</span>(container) {
+  <span class="kw">const</span> term = <span class="kw">new</span> <span class="type">Terminal</span>({
+    theme: { background: <span class="str">'#1a1a2e'</span> },
+    fontSize: 13,
+  })
+  <span class="kw">const</span> fit = <span class="kw">new</span> <span class="type">FitAddon</span>()
+  term.<span class="fn">loadAddon</span>(fit)
+  term.<span class="fn">open</span>(container)
+  fit.<span class="fn">fit</span>()
+  <span class="kw">return</span> { term, fit }
+}
+
+<span class="kw">export function</span> <span class="fn">writeLine</span>(terminal, line) {
+  terminal.term.<span class="fn">writeln</span>(line)
+}
+
+<span class="kw">export function</span> <span class="fn">fitTerminal</span>(terminal) {
+  terminal.fit.<span class="fn">fit</span>()
+}
+
+<span class="kw">export function</span> <span class="fn">disposeTerminal</span>(terminal) {
+  terminal.term.<span class="fn">dispose</span>()
+}
+
+<span class="kw">export function</span> <span class="fn">clearTerminal</span>(terminal) {
+  terminal.term.<span class="fn">clear</span>()
+}</pre>
+        </div>
+      </div>
+
+      <h3>Streaming Performance</h3>
+      <p>WebContainer writes logs character-by-character through <code style="color:var(--cyan)">onStdout</code>. The FFI binding buffers writes and flushes on <code style="color:var(--lustre)">effect.before_paint</code> to avoid per-character state updates:</p>
+      <div class="code-block"><span class="gleam-kw">fn</span> <span class="fn">handle_log</span>(model, line) {
+  <span class="comment">// Don't update state per line — buffer and flush</span>
+  <span class="gleam-kw">let</span> buffered = [<span class="fn">string.append</span>(model.pending_log, line), ..model.log_buffer]
+  <span class="gleam-kw">case</span> <span class="fn">list.length</span>(buffered) &gt; 20 {
+    <span class="type">True</span> -&gt; #(..model, log_buffer: [], [
+      effect.<span class="fn">from</span>(<span class="fn">flush_logs</span>(buffered))
+    ])
+    <span class="type">False</span> -&gt; #(..model, log_buffer: buffered, [])
+  }
+}
+
+<span class="gleam-kw">fn</span> <span class="fn">flush_logs</span>(lines) {
+  <span class="gleam-kw">fn</span>() {
+    <span class="gleam-kw">let</span> _ = xterm_ffi.<span class="fn">write_lines</span>(terminal, lines)
+    <span class="type">Nil</span>
+  }
+}</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 6. THE PLUGIN SYSTEM ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--gleam);color:#1a0a20">6</span> The Plugin System</h2>
+    <p>Inspired by CodeMirror's compartment system, each Build feature is a self-contained plug-in. New features are added as <code style="color:var(--lustre)">&lt;build-*&gt;</code> custom elements without modifying core.</p>
+
+    <div class="callout">
+      <strong>Open-closed principle.</strong> Add <code>&lt;build-diff-view&gt;</code>, <code>&lt;build-deploy&gt;</code>, or <code>&lt;build-git-status&gt;</code> without touching a single line of app.gleam. They register as custom elements, communicate via the inter-component bus, and compose in the shell.
+    </div>
+
+    <h3>Plugin Architecture</h3>
+    <div class="diagram">  <span class="lustre-kw">&lt;build-app&gt;</span>  <span class="dim">← shell: reads AppState, dispatches Msg, renders children</span>
+      │
+      ├── <span class="lustre-kw">&lt;build-editor&gt;</span>      <span class="dim">← core plugin</span>
+      ├── <span class="lustre-kw">&lt;build-terminal&gt;</span>     <span class="dim">← core plugin</span>
+      ├── <span class="lustre-kw">&lt;build-preview&gt;</span>     <span class="dim">← core plugin</span>
+      ├── <span class="lustre-kw">&lt;build-agent-chat&gt;</span>   <span class="dim">← core plugin</span>
+      ├── <span class="lustre-kw">&lt;build-project-nav&gt;</span>  <span class="dim">← core plugin</span>
+      ├── <span class="lustre-kw">&lt;build-element-picker&gt;</span> <span class="dim">← core plugin</span>
+      │
+      ├── <span class="orange">&lt;build-diff-view&gt;</span>    <span class="dim">← future plugin</span>
+      ├── <span class="orange">&lt;build-deploy&gt;</span>       <span class="dim">← future plugin</span>
+      ├── <span class="orange">&lt;build-git-status&gt;</span>  <span class="dim">← future plugin</span>
+      └── <span class="orange">&lt;build-test-runner&gt;</span>  <span class="dim">← future plugin</span>
+
+  <span class="dim">Communication:</span>
+  <span class="lustre-kw">effect.provide</span>(<span class="str">"build:state"</span>, state_json)   <span class="dim">← app publishes state</span>
+  <span class="lustre-kw">effect.subscribe</span>(<span class="str">"build:state"</span>, decoder) <span class="dim">← plugins subscribe</span>
+  <span class="lustre-kw">event.emit</span>(<span class="str">"build:msg"</span>, msg_json)           <span class="dim">← plugins emit messages</span></div>
+
+    <h3>Core Plugins</h3>
+    <div class="plugin-grid">
+      <div class="plugin-card core"><div class="tag">&lt;build-editor&gt;</div><div class="desc">CodeMirror 6 vanilla editor. Attributes: value, language. Events: change.</div></div>
+      <div class="plugin-card core"><div class="tag">&lt;build-terminal&gt;</div><div class="desc">xterm.js terminal. Attributes: visible. Methods: write, clear, fit.</div></div>
+      <div class="plugin-card core"><div class="tag">&lt;build-preview&gt;</div><div class="desc">iframe management. Attributes: src. Events: element-selected. Inspector postMessage bridge.</div></div>
+      <div class="plugin-card core"><div class="tag">&lt;build-agent-chat&gt;</div><div class="desc">Chat messages, prompt input, expand/collapse. Events: submit-prompt, improve-element.</div></div>
+      <div class="plugin-card core"><div class="tag">&lt;build-project-nav&gt;</div><div class="desc">Project list, new/open/delete/rename. Events: select-project, create-project.</div></div>
+      <div class="plugin-card core"><div class="tag">&lt;build-element-picker&gt;</div><div class="desc">Preview element selection overlay. Communicates with &lt;build-preview&gt;.</div></div>
+    </div>
+
+    <h3>Future Plugins</h3>
+    <div class="plugin-grid">
+      <div class="plugin-card future"><div class="tag">&lt;build-diff-view&gt;</div><div class="desc">Side-by-side diff of agent changes before apply. Subscribes to file patches.</div></div>
+      <div class="plugin-card future"><div class="tag">&lt;build-deploy&gt;</div><div class="desc">One-click deploy to Netlify/Vercel. Subscribes to project state.</div></div>
+      <div class="plugin-card future"><div class="tag">&lt;build-git-status&gt;</div><div class="desc">Git integration. File status, commit, push. Subscribes to file changes.</div></div>
+      <div class="plugin-card future"><div class="tag">&lt;build-test-runner&gt;</div><div class="desc">Run tests in WebContainer. Display results. Subscribes to container state.</div></div>
+    </div>
+
+    <h3>Adding a Plugin</h3>
+    <p>A new plugin is three steps. Zero changes to core:</p>
+    <div class="code-block"><span class="comment">// 1. Create the component module</span>
+<span class="gleam-kw">pub fn</span> <span class="fn">register</span>() {
+  lustre.<span class="fn">register</span>(<span class="str">"build-deploy"</span>, <span class="fn">init</span>, <span class="fn">update</span>, <span class="fn">view</span>)
+  |&gt; component.<span class="fn">on_attribute_change</span>(<span class="str">"project-id"</span>, <span class="fn">decode_string</span>, <span class="type">ProjectChanged</span>)
+  |&gt; lustre.<span class="fn">register_ok</span>()
+}
+
+<span class="comment">// 2. Subscribe to the state bus</span>
+<span class="gleam-kw">fn</span> <span class="fn">init</span>() {
+  <span class="gleam-kw">let</span> sub = effect.<span class="fn">subscribe</span>(<span class="str">"build:state"</span>, <span class="fn">decode_project_id</span>, <span class="type">ProjectChanged</span>)
+  #(<span class="type">Model</span>(<span class="str">""</span>), [sub])
+}
+
+<span class="comment">// 3. Emit messages back</span>
+<span class="gleam-kw">fn</span> <span class="fn">view</span>(model) {
+  html.<span class="fn">button</span>(
+    [attr.<span class="fn">class</span>(<span class="str">"deploy-btn"</span>), on.<span class="fn">click</span>(<span class="type">DeployClicked</span>)],
+    [html.<span class="fn">text</span>(<span class="str">"Deploy"</span>)],
+  )
+}</div>
+  </div>
+
+  <!-- ═══════════════ 7. MIGRATION PHASES ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--gleam);color:#1a0a20">7</span> Migration Phases</h2>
+    <p>Ordered phases with verification gates. Each phase ends with a concrete pass/fail check before moving on.</p>
+
+    <div class="phases">
+      <div class="phase" data-phase="0">
+        <h4><span class="phase-num">Phase 0</span> Set Up Gleam Project</h4>
+        <p>Boot the Gleam compilation pipeline. Get hello world compiling to JavaScript.</p>
+        <ul>
+          <li><code>gleam new build</code> — project scaffold</li>
+          <li>Add <code>lustre</code> and <code>lustre_ui</code> dependencies</li>
+          <li>Configure <code>gleam.toml</code> for JavaScript target</li>
+          <li>Get a minimal Lustre app rendering <code>&lt;h1&gt;Hello&lt;/h1&gt;</code> in the browser</li>
+          <li>Set up <code>lustre_dev_tools</code> for dev server</li>
+          <li>Verify production build outputs a single JS bundle</li>
+        </ul>
+        <div class="gate">Gleam compiles to JS. Hello world renders in browser. Dev server hot-reloads.</div>
+      </div>
+
+      <div class="phase" data-phase="1">
+        <h4><span class="phase-num">Phase 1</span> Port Pure Modules</h4>
+        <p>Move the easy stuff first — pure functions with no side effects and no React dependency.</p>
+        <ul>
+          <li><code>templates.ts</code> → <code>templates.gleam</code> — pure data, no FFI</li>
+          <li><code>preview-inspector.ts</code> → <code>preview_inspector.gleam</code> — pure types/functions</li>
+          <li><code>design-guidance.ts</code> → <code>design_guidance.gleam</code> — pure function</li>
+          <li><code>editor.ts</code> → <code>editor.gleam</code> — pure function</li>
+        </ul>
+        <p>These are the safest ports. No FFI, no DOM, no side effects. Validates that Gleam's JavaScript target works for the data types we need.</p>
+        <div class="gate">All 4 modules ported. Gleam unit tests pass. TypeScript tests still pass (we haven't deleted the originals yet).</div>
+      </div>
+
+      <div class="phase" data-phase="2">
+        <h4><span class="phase-num">Phase 2</span> Build Actor System — Simple Actors</h4>
+        <p>Start with the stateless actors: Settings, Chat, Preview. These have minimal effects and no cross-actor dependencies.</p>
+        <ul>
+          <li><code>actors/settings.gleam</code> — SettingsState, SettingsMsg, SettingsEffect, update()</li>
+          <li><code>actors/chat.gleam</code> — ChatState, ChatMsg (no effects — <code>Effect</code> is <code>Nil</code>)</li>
+          <li><code>actors/preview.gleam</code> — PreviewState, PreviewMsg, PreviewEffect, update()</li>
+        </ul>
+        <p>Each actor's <code>update()</code> is a pure function. Write comprehensive unit tests before wiring anything to the runtime.</p>
+        <div class="gate">3 actor modules with 100% exhaustiveness checks. All actor unit tests pass. Gleam compiler catches missing cases.</div>
+      </div>
+
+      <div class="phase" data-phase="3">
+        <h4><span class="phase-num">Phase 3</span> Build Complex Actors</h4>
+        <p>Agent and WebContainer — the actors with state machines and cross-domain data.</p>
+        <ul>
+          <li><code>actors/agent.gleam</code> — AgentLifecycle state machine (<code>Idle | Running | TimedOut</code>)</li>
+          <li><code>actors/webcontainer.gleam</code> — BootPhase state machine (<code>LoadingIDB | Booting | Installing | StartingDev | Ready | Error</code>)</li>
+          <li>Validate that <code>busy</code> is correctly derived from both actors</li>
+        </ul>
+        <div class="gate">State machines make impossible states impossible. No <code>busy=True, startedAt=None</code> combos. Unit tests for every transition.</div>
+      </div>
+
+      <div class="phase" data-phase="4">
+        <h4><span class="phase-num">Phase 4</span> Build the Effect Runtime</h4>
+        <p>Connect pure Effect types to real side effects.</p>
+        <ul>
+          <li><code>runtime.gleam</code> — dispatcher, routes <code>AppEffect</code> to domain interpreters</li>
+          <li><code>runtime/settings.gleam</code> — persist to localStorage, test Ollama connection</li>
+          <li><code>runtime/project.gleam</code> — IndexedDB CRUD (FFI to projects.js)</li>
+          <li><code>runtime/agent.gleam</code> — call_agent, abort_agent, timers (FFI to agent.js)</li>
+          <li><code>runtime/preview.gleam</code> — postMessage to iframe</li>
+          <li><code>runtime/webcontainer.gleam</leam</code> — boot, mount, install, dev server (FFI to webcontainer.js)</li>
+        </ul>
+        <p>This is where FFI bindings get wired. Each runtime module imports its JS counterpart and calls impure functions. The actor stays pure — only the runtime is impure.</p>
+        <div class="gate">All FFI bindings compile. Effect interpreters run real side effects when called from tests with mocks. No React yet.</div>
+      </div>
+
+      <div class="phase" data-phase="5">
+        <h4><span class="phase-num">Phase 5</span> Build Lustre Components</h4>
+        <p>Create the custom elements that wrap CodeMirror and xterm, plus the pure Lustre view components.</p>
+        <ul>
+          <li><code>components/build_editor.gleam</code> — CodeMirror 6 custom element + FFI</li>
+          <li><code>components/build_terminal.gleam</code> — xterm.js custom element + FFI</li>
+          <li><code>components/build_preview.gleam</code> — iframe, postMessage bridge</li>
+          <li><code>components/build_agent_chat.gleam</code> — messages list, prompt input</li>
+          <li><code>components/build_project_nav.gleam</code> — project list, CRUD buttons</li>
+          <li><code>components/build_element_picker.gleam</code> — selection overlay</li>
+        </ul>
+        <p>Test each component in isolation. Open <code>&lt;build-editor value="hello"&gt;</code> in a browser — does CodeMirror render? Does typing emit a <code>change</code> event?</p>
+        <div class="gate">All 6 components render in browser in isolation. Custom elements registered. Attribute/event interfaces work.</div>
+      </div>
+
+      <div class="phase" data-phase="6">
+        <h4><span class="phase-num">Phase 6</span> Wire the App Shell</h4>
+        <p>Compose everything. The app shell reads AppState, dispatches AppMsg, renders the component tree.</p>
+        <ul>
+          <li><code>app.gleam</code> — AppState, AppMsg union, appUpdate()</li>
+          <li>Register all custom elements on page load</li>
+          <li>Wire app shell view to compose components</li>
+          <li>Connect effect runtime to dispatch loop</li>
+          <li>Copy <code>styles.css</code> verbatim into the build</li>
+        </ul>
+        <p>First time we see the full Gleam app rendering. It will be ugly at first — layout wrong, interactions missing — but the structure is there.</p>
+        <div class="gate">App renders. All components mount. Dispatch loop works. Effect runtime processes effects. CSS loads.</div>
+      </div>
+
+      <div class="phase" data-phase="7">
+        <h4><span class="phase-num">Phase 7</span> Visual Parity Verification</h4>
+        <p>Pixel-by-pixel comparison. Open both versions side by side.</p>
+        <ul>
+          <li>Screenshot comparison: same viewport, same state → identical pixels</li>
+          <li>DOM structure audit: same class names, same nesting, same element types</li>
+          <li>CSS audit: verify every selector in styles.css matches correctly</li>
+          <li>Layout verification: flex/grid layouts identical at all breakpoints</li>
+          <li>Font sizes, colors, spacing — measure with dev tools</li>
+        </ul>
+        <div class="gate">Screenshot diff &lt; 1% pixel difference. Same DOM class names. Same CSS computed styles on key elements.</div>
+      </div>
+
+      <div class="phase" data-phase="8">
+        <h4><span class="phase-num">Phase 8</span> Feature Parity Verification</h4>
+        <p>Test every interaction. Not just "does it render" — does it behave identically?</p>
+        <ul>
+          <li>Agent chat: submit prompt → agent call → patches applied → files updated</li>
+          <li>Improve selected element: select in preview → agent call → patch</li>
+          <li>Project CRUD: create, rename, switch, delete, auto-save</li>
+          <li>Settings: change provider, API key, test Ollama connection</li>
+          <li>WebContainer: boot, mount, install, dev server start, hot reload</li>
+          <li>Preview inspector: select element, deselect, re-select</li>
+          <li>Terminal: logs stream, clear, resize</li>
+          <li>Auto-save: 900ms debounce after file changes</li>
+          <li>Cancel agent: abort mid-call, reset state</li>
+          <li>Timeout: 120s agent timeout fires correctly</li>
+        </ul>
+        <div class="gate">Every feature works identically. Run the full manual test suite. No regressions.</div>
+      </div>
+
+      <div class="phase" data-phase="9">
+        <h4><span class="phase-num">Phase 9</span> Delete React</h4>
+        <p>The final cut. Remove React from the dependency tree.</p>
+        <ul>
+          <li>Delete <code>main.tsx</code>, <code>CodeEditor.tsx</code>, <code>TerminalPanel.tsx</code></li>
+          <li>Delete <code>react</code>, <code>react-dom</code> from <code>package.json</code></li>
+          <li>Delete <code>@uiw/react-codemirror</code> (replaced by vanilla CM6)</li>
+          <li>Keep pure JS modules as FFI: <code>agent.js</code>, <code>projects.js</code>, <code>webcontainer.js</code>, <code>zip.js</code></li>
+          <li>Keep <code>xterm</code>, <code>@xterm/addon-fit</code> (used by custom element FFI)</li>
+          <li>Keep <code>@webcontainer/api</code> (used by FFI binding)</li>
+          <li>Update build pipeline: Vite entry → Gleam JS output</li>
+          <li>Verify production bundle size</li>
+        </ul>
+        <div class="gate">Zero React in node_modules. Zero React in bundle. Production build works. Bundle size ≤ React version. All tests green.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 8. BEFORE/AFTER ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--gleam);color:#1a0a20">8</span> Before / After</h2>
+
+    <div class="compare-grid">
+      <div class="compare-col compare-before">
+        <h4>🔴 Before — React Monolith</h4>
+        <div class="compare-row"><span class="label">Main file</span><span class="val" style="color:var(--red)">545 lines</span></div>
+        <div class="compare-row"><span class="label">useState hooks</span><span class="val">19</span></div>
+        <div class="compare-row"><span class="label">useRef hooks</span><span class="val">3</span></div>
+        <div class="compare-row"><span class="label">useEffect hooks</span><span class="val">7</span></div>
+        <div class="compare-row"><span class="label">State management</span><span class="val">Scattered</span></div>
+        <div class="compare-row"><span class="label">Agent call logic</span><span class="val">Copy-pasted</span></div>
+        <div class="compare-row"><span class="label">Impossible states</span><span class="val">Possible</span></div>
+        <div class="compare-row"><span class="label">Test coverage</span><span class="val">42 tests</span></div>
+        <div class="compare-row"><span class="label">Framework</span><span class="val">React + Vite</span></div>
+        <div class="compare-row"><span class="label">Runtime deps</span><span class="val">react, react-dom</span></div>
+        <div class="compare-row"><span class="label">Extensibility</span><span class="val">Edit main.tsx</span></div>
+      </div>
+      <div class="compare-col compare-after">
+        <h4>🩷 After — Gleam Actors + Lustre</h4>
+        <div class="compare-row"><span class="label">Main file</span><span class="val" style="color:var(--gleam)">app.gleam ~150 lines</span></div>
+        <div class="compare-row"><span class="label">useState hooks</span><span class="val" style="color:var(--green)">0</span></div>
+        <div class="compare-row"><span class="label">useRef hooks</span><span class="val" style="color:var(--green)">0</span></div>
+        <div class="compare-row"><span class="label">useEffect hooks</span><span class="val" style="color:var(--green)">0</span></div>
+        <div class="compare-row"><span class="label">State management</span><span class="val" style="color:var(--gleam)">Typed update()</span></div>
+        <div class="compare-row"><span class="label">Agent call logic</span><span class="val" style="color:var(--green)">Single Effect</span></div>
+        <div class="compare-row"><span class="label">Impossible states</span><span class="val" style="color:var(--green)">Impossible</span></div>
+        <div class="compare-row"><span class="label">Test coverage</span><span class="val" style="color:var(--gleam)">42 + ~60 new</span></div>
+        <div class="compare-row"><span class="label">Framework</span><span class="val" style="color:var(--gleam)">Gleam + Lustre</span></div>
+        <div class="compare-row"><span class="label">Runtime deps</span><span class="val" style="color:var(--green)">None (FFI only)</span></div>
+        <div class="compare-row"><span class="label">Extensibility</span><span class="val" style="color:var(--gleam)">Plug-in components</span></div>
+      </div>
+    </div>
+
+    <h3>Code Comparison: Agent Request</h3>
+    <div class="code-compare">
+      <div class="code-col">
+        <div class="label ts">TypeScript — main.tsx (before)</div>
+        <pre><span class="comment">// ~90 lines, copy-pasted in submit() and</span>
+<span class="comment">// improveSelectedElement()</span>
+
+<span class="kw">async function</span> <span class="fn">submit</span>() {
+  <span class="fn">setBusy</span>(<span class="kw">true</span>)
+  <span class="fn">setAgentStartedAt</span>(Date.<span class="fn">now</span>())
+  <span class="kw">const</span> ctrl = <span class="kw">new</span> <span class="type">AbortController</span>()
+  abortRef.current = ctrl
+  <span class="kw">try</span> {
+    <span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">runAgent</span>({
+      provider, apiKey, ollamaUrl, model,
+      userPrompt: prompt,
+      messages, files, selectedElement,
+    })
+    <span class="fn">setMessages</span>(prev =&gt; [...prev,
+      { role: <span class="str">"assistant"</span>, content: result.reply }
+    ])
+    <span class="kw">for</span> (<span class="kw">const</span> p <span class="kw">of</span> result.patches)
+      <span class="fn">applyFile</span>(p.path, p.content)
+    <span class="fn">setSaveStatus</span>(<span class="str">"Unsaved changes"</span>)
+  } <span class="kw">catch</span> (e) {
+    <span class="fn">setMessages</span>(prev =&gt; [...prev,
+      { role: <span class="str">"assistant"</span>, content: <span class="str">`Error: ${e}`</span> }
+    ])
+  } <span class="kw">finally</span> {
+    <span class="fn">setBusy</span>(<span class="kw">false</span>)
+    <span class="fn">setAgentStartedAt</span>(<span class="kw">null</span>)
+  }
+}</pre>
+      </div>
+      <div class="code-col">
+        <div class="label gleam">Gleam — agent.gleam + app.gleam (after)</div>
+        <pre><span class="comment">// agent.gleam — pure update, 15 lines</span>
+<span class="gleam-kw">fn</span> <span class="fn">update</span>(state, msg) {
+  <span class="gleam-kw">case</span> msg {
+    <span class="type">AgentRequestStarted</span>(at) -&gt; #(
+      ..state, lifecycle: <span class="type">Running</span>(at),
+      [],
+      [<span class="type">StartElapsedTimer</span>, <span class="type">CallAgent</span>(..)],
+    )
+    <span class="type">AgentRequestSucceeded</span>(reply, patches) -&gt; #(
+      ..state, lifecycle: <span class="type">Idle</span>,
+      [<span class="type">StopElapsedTimer</span>,
+       <span class="type">InstallIfNeeded</span>(patches)],
+    )
+    <span class="type">AgentRequestFailed</span>(msg) -&gt; #(
+      ..state, lifecycle: <span class="type">Idle</span>,
+      [<span class="type">StopElapsedTimer</span>],
+    )
+  }
+}
+
+<span class="comment">// app.gleam — composes cross-actor effects</span>
+<span class="gleam-kw">fn</span> <span class="fn">app_update</span>(state, msg) {
+  <span class="gleam-kw">case</span> msg {
+    <span class="type">SubmitPrompt</span> -&gt; {
+      <span class="gleam-kw">let</span> #(chat, chat_fx) = chat.<span class="fn">update</span>(
+        state.chat, <span class="type">UserSentMessage</span>(prompt)
+      )
+      <span class="gleam-kw">let</span> #(agent, agent_fx) = agent.<span class="fn">update</span>(
+        state.agent, <span class="type">AgentRequestStarted</span>(<span class="fn">now</span>())
+      )
+      #(..state, chat:, agent:,
+        [agent_fx, chat_fx])
+    }
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 9. RISK ASSESSMENT ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--gleam);color:#1a0a20">9</span> Risk Assessment</h2>
+
+    <div class="risk">
+      <div class="risk-header">
+        <span class="risk-sev sev-med">MEDIUM</span>
+        <h4>FFI Complexity</h4>
+      </div>
+      <p>Five JS modules stay as FFI bindings (agent, projects, webcontainer, zip, CodeMirror). Each needs carefully typed Gleam externals + JS implementations.</p>
+      <div class="mitigation">Start with FFI in Phase 1 (pure modules) where risk is zero. Build CodeMirror/xterm FFI in Phase 5 when components are isolated. FFI surface area is small — each binding is ~50-80 lines of JS.</div>
+    </div>
+
+    <div class="risk">
+      <div class="risk-header">
+        <span class="risk-sev sev-med">MEDIUM</span>
+        <h4>Lustre Maturity</h4>
+      </div>
+      <p>Lustre is v5.6 — active development, not yet 1.0. Custom elements API may change. Documentation gaps exist.</p>
+      <div class="mitigation">Lustre's core architecture (Elm Architecture) is battle-tested — the pattern is 10+ years old. Custom element registration is a thin layer. If Lustre breaks, the actor system and state management are independent and portable. Worst case: re-render with vanilla custom elements + actor subscriptions.</div>
+    </div>
+
+    <div class="risk">
+      <div class="risk-header">
+        <span class="risk-sev sev-low">LOW</span>
+        <h4>CSS Parity</h4>
+      </div>
+      <p>Shadow DOM could break CSS selectors. Existing CSS targets flat class names.</p>
+      <div class="mitigation">Use light DOM for all Build components. Same class names, same DOM nesting, same CSS. Shadow DOM is opt-in — we opt out. Verified in Phase 7 (visual parity gate).</div>
+    </div>
+
+    <div class="risk">
+      <div class="risk-header">
+        <span class="risk-sev sev-med">MEDIUM</span>
+        <h4>xterm Streaming Performance</h4>
+      </div>
+      <p>WebContainer writes stdout character-by-character. Per-character state updates would kill performance.</p>
+      <div class="mitigation">The xterm custom element writes directly to the Terminal instance via FFI — bypassing Lustre's state for streaming writes. Log state is maintained for replay, but the terminal display is imperative. Buffer + flush on requestAnimationFrame via <code>effect.before_paint</code>.</div>
+    </div>
+
+    <div class="risk">
+      <div class="risk-header">
+        <span class="risk-sev sev-low">LOW</span>
+        <h4>CodeMirror FFI</h4>
+      </div>
+      <p>CodeMirror 6 has a complex extension system. Mapping it through FFI could be fragile.</p>
+      <div class="mitigation">We only use basic extensions: language support, keymap, dark theme. The FFI binding exposes <code>create</code>, <code>setContent</code>, <code>destroy</code>, <code>reloadLanguage</code> — a narrow surface. Extensions are configured in JS, not exposed to Gleam.</div>
+    </div>
+
+    <div class="risk">
+      <div class="risk-header">
+        <span class="risk-sev sev-med">MEDIUM</span>
+        <h4>WebContainer API FFI</h4>
+      </div>
+      <p>WebContainer API is async, event-driven, and browser-only. Boot sequence involves multiple async steps.</p>
+      <div class="mitigation">The WebContainer FFI module mirrors the existing webcontainer.ts — same API calls, same event handlers. The Gleam side only sees typed Effects. The JS side handles all async complexity. This is identical to how the React version works, just moved from useEffect to effect runtime.</div>
+    </div>
+
+    <div class="risk">
+      <div class="risk-header">
+        <span class="risk-sev sev-med">MEDIUM</span>
+        <h4>Dev Tooling</h4>
+      </div>
+      <p>Vite has hot reload, TypeScript checking, and mature debugging. <code>lustre_dev_tools</code> is newer and less feature-complete.</p>
+      <div class="mitigation">Use Vite as the bundler (Gleam compiles to JS, Vite bundles it). <code>lustre_dev_tools</code> for dev server during development. Production builds go through Gleam compile → JS output → Vite bundle. We keep Vite — it's not a Vite vs lustre_dev_tools choice.</div>
+    </div>
+
+    <div class="risk">
+      <div class="risk-header">
+        <span class="risk-sev sev-low">LOW</span>
+        <h4>Production Build</h4>
+      </div>
+      <p>Gleam's JavaScript output size. Bundle size comparison with React version.</p>
+      <div class="mitigation">Gleam's runtime is ~5KB gzipped (much smaller than React + ReactDOM at ~40KB). Lustre adds ~10KB. Net savings expected: -25KB from removing React, -15KB from removing @uiw/react-codemirror (vanilla CM6 is smaller). Total bundle should be smaller.</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 10. WHY GLEAM ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--gleam);color:#1a0a20">10</span> Decision: Why Gleam</h2>
+    <p>Not "why functional programming" or "why type safety" — those are general arguments. Why Gleam <em>specifically</em> for Build.</p>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:20px;">
+      <h3 style="color:var(--gleam);margin-bottom:12px;">1. The actor model matches Build's domain</h3>
+      <p style="margin-bottom:12px;">Build has 6 distinct state domains (Settings, Project, Chat, Agent, Preview, WebContainer) that currently share a 545-line component with 19 useState hooks. Gleam's actor model — where each domain is a self-contained module with its own State/Msg/Effect — maps 1:1 to Build's actual structure. This isn't forcing a pattern; it's revealing the pattern that was always there.</p>
+
+      <h3 style="color:var(--gleam);margin-bottom:12px;">2. Exhaustiveness checking catches real bugs</h3>
+      <p style="margin-bottom:12px;">The current code has implicit state machines (busy + agentStartedAt, projectReady + hydrated). When these get out of sync, bugs happen. Gleam's never-typed default branches make missing cases a compile error. This isn't theoretical — the current code's <code>busy</code> flag can race between WebContainer boot and agent calls. The state machine approach makes this impossible.</p>
+
+      <h3 style="color:var(--gleam);margin-bottom:12px;">3. Lustre components are Build's plugin architecture</h3>
+      <p style="margin-bottom:12px;">Build wants to add diff views, deploy buttons, git status, test runners. With React, each new feature means editing main.tsx. With Lustre custom elements, each feature is <code>&lt;build-*&gt;</code> — register it, drop it in the shell, done. The component bus lets plugins subscribe to state and emit messages without touching core. This is the extensibility model Build needs.</p>
+
+      <h3 style="color:var(--gleam);margin-bottom:12px;">4. Zero runtime dependency addition</h3>
+      <p style="margin-bottom:12px;">Gleam compiles to plain JavaScript. Lustre is ~10KB. We're <em>removing</em> react + react-dom (~40KB) and @uiw/react-codemirror (~15KB). The net effect is a smaller bundle with a smaller dependency tree. No Zustand, no XState, no external state manager — the actor pattern <em>is</em> the state manager.</p>
+
+      <h3 style="color:var(--gleam);margin-bottom:12px;">5. Pure functions are testable functions</h3>
+      <p>Every <code>update()</code> is a pure function: <code>update(state, msg) → (state, effects)</code>. No React test renderer. No hook mocking. No async setup. Just call the function, check the result. This is how the existing 42 tests work on pure modules — we're extending the same pattern to state management.</p>
+    </div>
+
+    <div class="callout">
+      <strong>The short version:</strong> Gleam doesn't add complexity — it removes it. The 545-line monolith becomes 15 focused modules. The 19 useState hooks become 6 typed actors. The copy-pasted agent code becomes one Effect. And the whole thing gets a plugin system for free.
+    </div>
+  </div>
+
+  <!-- ═══════════════ APPENDIX: ACTOR DETAIL ═══════════════ -->
+  <div class="section">
+    <h2><span class="icon" style="background:var(--surface-3);color:var(--text-dim)">+</span> Appendix: Actor Detail</h2>
+    <p>Exhaustiveness-checked message types and state machines for every actor.</p>
+
+    <details>
+      <summary>Settings Actor — State, Msg, Effect</summary>
+      <div class="detail-content">
+        <div class="code-block"><span class="gleam-kw">pub type</span> <span class="type">SettingsState</span> {
+  <span class="type">SettingsState</span>(
+    provider: <span class="type">AgentProvider</span>,
+    api_key: <span class="type">String</span>,
+    ollama_url: <span class="type">String</span>,
+    model: <span class="type">String</span>,
+    settings_open: <span class="type">Bool</span>,
+    connection_status: <span class="type">String</span>,
+  )
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">SettingsMsg</span> {
+  <span class="type">ProviderChanged</span>(<span class="type">AgentProvider</span>)
+  <span class="type">ApiKeyChanged</span>(<span class="type">String</span>)
+  <span class="type">OllamaUrlChanged</span>(<span class="type">String</span>)
+  <span class="type">ModelChanged</span>(<span class="type">String</span>)
+  <span class="type">SettingsToggled</span>
+  <span class="type">SettingsClosed</span>
+  <span class="type">ConnectionStatusChanged</span>(<span class="type">String</span>)
+  <span class="type">TestOllama</span>
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">SettingsEffect</span> {
+  <span class="type">PersistSettings</span>(provider: <span class="type">AgentProvider</span>, api_key: <span class="type">String</span>, ollama_url: <span class="type">String</span>, model: <span class="type">String</span>)
+  <span class="type">TestOllamaConnection</span>(<span class="type">String</span>)
+}</div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Chat Actor — State, Msg (no effects)</summary>
+      <div class="detail-content">
+        <div class="code-block"><span class="gleam-kw">pub type</span> <span class="type">ChatState</span> {
+  <span class="type">ChatState</span>(
+    messages: <span class="type">List</span>(<span class="type">ChatMessage</span>),
+    prompt: <span class="type">String</span>,
+    expanded: <span class="type">Set</span>(<span class="type">Int</span>),
+  )
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">ChatMsg</span> {
+  <span class="type">UserSentMessage</span>(<span class="type">String</span>)
+  <span class="type">AssistantReplied</span>(<span class="type">String</span>)
+  <span class="type">AssistantError</span>(<span class="type">String</span>)
+  <span class="type">PromptChanged</span>(<span class="type">String</span>)
+  <span class="type">MessageToggled</span>(<span class="type">Int</span>)
+  <span class="type">ChatCleared</span>
+}
+
+<span class="comment">// ChatEffect = Nil — no side effects</span></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Agent Actor — Lifecycle State Machine</summary>
+      <div class="detail-content">
+        <div class="code-block"><span class="gleam-kw">pub type</span> <span class="type">AgentLifecycle</span> {
+  <span class="type">Idle</span>
+  <span class="type">Running</span>(started_at: <span class="type">Int</span>)
+  <span class="type">TimedOut</span>
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">AgentState</span> {
+  <span class="type">AgentState</span>(
+    lifecycle: <span class="type">AgentLifecycle</span>,
+    elapsed_seconds: <span class="type">Int</span>,
+  )
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">AgentMsg</span> {
+  <span class="type">AgentRequestStarted</span>(<span class="type">Int</span>)
+  <span class="type">AgentElapsedTick</span>
+  <span class="type">AgentRequestSucceeded</span>(reply: <span class="type">String</span>, patches: <span class="type">List</span>(<span class="type">FilePatch</span>))
+  <span class="type">AgentRequestFailed</span>(<span class="type">String</span>)
+  <span class="type">AgentRequestCanceled</span>
+  <span class="type">AgentTimeoutReached</span>
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">AgentEffect</span> {
+  <span class="type">CallAgent</span>(<span class="type">AgentParams</span>)
+  <span class="type">CallAgentImprove</span>(<span class="type">ImproveParams</span>)
+  <span class="type">StartElapsedTimer</span>
+  <span class="type">StopElapsedTimer</span>
+  <span class="type">AbortAgent</span>
+  <span class="type">InstallIfNeeded</span>(<span class="type">List</span>(<span class="type">FilePatch</span>))
+}
+
+<span class="comment">// derived: busy = lifecycle == Running</span></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>WebContainer Actor — BootPhase State Machine</summary>
+      <div class="detail-content">
+        <div class="code-block"><span class="gleam-kw">pub type</span> <span class="type">BootPhase</span> {
+  <span class="type">LoadingIndexedDB</span>
+  <span class="type">BootingContainer</span>
+  <span class="type">Installing</span>
+  <span class="type">StartingDevServer</span>
+  <span class="type">Ready</span>
+  <span class="type">BootError</span>(<span class="type">String</span>)
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">WebContainerState</span> {
+  <span class="type">WebContainerState</span>(
+    boot_phase: <span class="type">BootPhase</span>,
+    logs: <span class="type">List</span>(<span class="type">String</span>),
+  )
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">WebContainerMsg</span> {
+  <span class="type">BootStarted</span>
+  <span class="type">BootSucceeded</span>
+  <span class="type">BootFailed</span>(<span class="type">String</span>)
+  <span class="type">LogAppended</span>(<span class="type">String</span>)
+  <span class="type">ProjectHydrated</span>
+  <span class="type">RemountRequested</span>(<span class="type">List</span>(<span class="type">ProjectFile</span>))
+  <span class="type">SyncFilesRequested</span>
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">WebContainerEffect</span> {
+  <span class="type">BootContainer</span>(<span class="type">List</span>(<span class="type">ProjectFile</span>))
+  <span class="type">MountAndInstall</span>(<span class="type">List</span>(<span class="type">ProjectFile</span>))
+  <span class="type">StartDevServer</span>
+  <span class="type">RunNpmInstall</span>
+  <span class="type">ReadFilesFromContainer</span>
+}
+
+<span class="comment">// derived: wc_busy = boot_phase != Ready</span></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Preview Actor — State, Msg, Effect</summary>
+      <div class="detail-content">
+        <div class="code-block"><span class="gleam-kw">pub type</span> <span class="type">PreviewState</span> {
+  <span class="type">PreviewState</span>(
+    preview_url: <span class="type">String</span>,
+    selecting_element: <span class="type">Bool</span>,
+    selected_element: <span class="type">Option</span>(<span class="type">SelectedPreviewElement</span>),
+    element_comment: <span class="type">String</span>,
+  )
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">PreviewMsg</span> {
+  <span class="type">PreviewUrlChanged</span>(<span class="type">String</span>)
+  <span class="type">ElementSelectToggled</span>
+  <span class="type">ElementSelected</span>(<span class="type">SelectedPreviewElement</span>)
+  <span class="type">ElementCommentChanged</span>(<span class="type">String</span>)
+  <span class="type">ElementCleared</span>
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">PreviewEffect</span> {
+  <span class="type">PostInspectorMessage</span>(<span class="type">InspectorMessage</span>)
+}</div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Project Actor — State, Msg, Effect</summary>
+      <div class="detail-content">
+        <div class="code-block"><span class="gleam-kw">pub type</span> <span class="type">ProjectState</span> {
+  <span class="type">ProjectState</span>(
+    project_name: <span class="type">String</span>,
+    current_project_id: <span class="type">Option</span>(<span class="type">String</span>),
+    saved_projects: <span class="type">List</span>(<span class="type">SavedProjectSnapshot</span>),
+    save_status: <span class="type">String</span>,
+    project_ready: <span class="type">Bool</span>,
+    name_editing: <span class="type">Bool</span>,
+    projects_open: <span class="type">Bool</span>,
+    files: <span class="type">List</span>(<span class="type">ProjectFile</span>),
+    selected_path: <span class="type">String</span>,
+  )
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">ProjectMsg</span> {
+  <span class="type">ProjectLoaded</span>(id: <span class="type">String</span>, name: <span class="type">String</span>, files: <span class="type">List</span>(<span class="type">ProjectFile</span>), messages: <span class="type">List</span>(<span class="type">ChatMessage</span>), selected_path: <span class="type">String</span>, updated_at: <span class="type">String</span>)
+  <span class="type">ProjectListRefreshed</span>(<span class="type">List</span>(<span class="type">SavedProjectSnapshot</span>))
+  <span class="type">ProjectCreated</span>(id: <span class="type">String</span>, name: <span class="type">String</span>)
+  <span class="type">ProjectNameChanged</span>(<span class="type">String</span>)
+  <span class="type">ProjectNameEditingToggled</span>
+  <span class="type">ProjectsDialogToggled</span>
+  <span class="type">ProjectsDialogClosed</span>
+  <span class="type">ProjectReady</span>
+  <span class="type">SaveStatusChanged</span>(<span class="type">String</span>)
+  <span class="type">FilesUpdated</span>(<span class="type">List</span>(<span class="type">ProjectFile</span>))
+  <span class="type">FileApplied</span>(path: <span class="type">String</span>, content: <span class="type">String</span>)
+  <span class="type">SelectedPathChanged</span>(<span class="type">String</span>)
+}
+
+<span class="gleam-kw">pub type</span> <span class="type">ProjectEffect</span> {
+  <span class="type">LoadInitialProject</span>
+  <span class="type">SaveCurrentProject</span>(..)
+  <span class="type">CreateProject</span>(..)
+  <span class="type">DeleteProject</span>(<span class="type">String</span>)
+  <span class="type">RefreshProjectList</span>
+  <span class="type">PersistCurrentProjectId</span>(<span class="type">Option</span>(<span class="type">String</span>))
+  <span class="type">WriteFileToContainer</span>(path: <span class="type">String</span>, content: <span class="type">String</span>)
+  <span class="type">RemountProject</span>(<span class="type">List</span>(<span class="type">ProjectFile</span>))
+}</div>
+      </div>
+    </details>
+  </div>
+
+  <div class="footer">
+    Build Gleam Architecture Migration Plan · Architect D · 2026-05-27<br>
+    1:1 parity or it didn't happen.
+  </div>
+
+</div>
+
+<script>
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('visible'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('visible');
+  btn.classList.add('active');
+}
+</script>
+
+</body>
+</html>

@@ -1,5 +1,5 @@
 import { registerBuildEditor } from './gleam-externals/editor.mjs'
-import { dispatchPreviewElementSelected } from './gleam-externals/runtime_bridge.mjs'
+import { dispatchPreviewElementSelected } from '../build/dev/javascript/build/gleam-externals/runtime_bridge.mjs'
 import { registerBuildTerminal } from './gleam-externals/terminal.mjs'
 import { main } from '../build/dev/javascript/build/build_app.mjs'
 

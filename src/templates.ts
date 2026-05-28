@@ -114,14 +114,22 @@ function clearHover() {
   hovered = null
 }
 
+function emitInspectorStatus(type: string) {
+  window.parent.postMessage({ type }, '*')
+}
+
+emitInspectorStatus('BUILD_INSPECTOR_READY')
+
 function enable() {
   enabled = true
   ensureStyle()
+  emitInspectorStatus('BUILD_INSPECTOR_ENABLED')
 }
 
 function disable() {
   enabled = false
   clearHover()
+  emitInspectorStatus('BUILD_INSPECTOR_DISABLED')
 }
 
 window.addEventListener('message', event => {
@@ -141,6 +149,7 @@ document.addEventListener('click', event => {
   event.preventDefault()
   event.stopPropagation()
   const element = event.target
+  emitInspectorStatus('BUILD_INSPECTOR_CLICK_SEEN')
   const rect = element.getBoundingClientRect()
   window.parent.postMessage({
     type: 'BUILD_ELEMENT_SELECTED',

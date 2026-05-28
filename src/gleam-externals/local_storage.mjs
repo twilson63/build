@@ -1,4 +1,14 @@
-import { dispatchSettingsStatus } from './runtime_bridge.mjs'
+import { dispatchSettingsLoaded, dispatchSettingsStatus } from './runtime_bridge.mjs'
+
+export function loadSettings() {
+  const settings = {
+    provider: globalThis.localStorage?.getItem('agent-provider') ?? 'openrouter',
+    apiKey: globalThis.localStorage?.getItem('openrouter-key') ?? '',
+    ollamaUrl: globalThis.localStorage?.getItem('ollama-url') ?? 'http://localhost:11434',
+    model: globalThis.localStorage?.getItem('agent-model') ?? '',
+  }
+  setTimeout(() => dispatchSettingsLoaded(settings), 0)
+}
 
 export function persistSettings(provider, apiKey, ollamaUrl, model) {
   globalThis.localStorage?.setItem('agent-provider', provider)

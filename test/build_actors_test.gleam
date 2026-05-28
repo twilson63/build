@@ -14,10 +14,26 @@ pub fn main() -> Nil {
 }
 
 pub fn settings_provider_defaults_model_test() {
-  let #(state, effects) = settings.update(settings.init(), settings.ProviderChanged(settings.Ollama))
+  let #(state, effects) =
+    settings.update(settings.init(), settings.ProviderChanged(settings.Ollama))
 
   assert state.provider == settings.Ollama
   assert state.model == "glm-5:cloud"
+  assert effects == []
+}
+
+pub fn settings_loads_from_storage_test() {
+  let #(state, effects) =
+    settings.update(
+      settings.init(),
+      settings.SettingsLoaded("ollama", "key", "http://ollama", "glm-5:cloud"),
+    )
+
+  assert state.provider == settings.Ollama
+  assert state.api_key == "key"
+  assert state.ollama_url == "http://ollama"
+  assert state.model == "glm-5:cloud"
+  assert state.settings_open == False
   assert effects == []
 }
 
@@ -37,7 +53,8 @@ pub fn chat_user_message_clears_prompt_test() {
 }
 
 pub fn agent_ignores_stale_success_test() {
-  let #(running, _) = agent.update(agent.init(), agent.AgentRequestStarted("new", 1000))
+  let #(running, _) =
+    agent.update(agent.init(), agent.AgentRequestStarted("new", 1000))
   let #(next, effects) =
     agent.update(running, agent.AgentRequestSucceeded("old", "ignored", []))
 
@@ -47,7 +64,8 @@ pub fn agent_ignores_stale_success_test() {
 
 pub fn agent_success_stops_timer_and_installs_test() {
   let patch = agent.Patch(path: "package.json", content: "{}")
-  let #(running, _) = agent.update(agent.init(), agent.AgentRequestStarted("req", 1000))
+  let #(running, _) =
+    agent.update(agent.init(), agent.AgentRequestStarted("req", 1000))
   let #(next, effects) =
     agent.update(running, agent.AgentRequestSucceeded("req", "done", [patch]))
 
@@ -57,36 +75,46 @@ pub fn agent_success_stops_timer_and_installs_test() {
 
 pub fn project_file_applied_upserts_and_writes_test() {
   let #(next, effects) =
-    project.update(project.init(), project.FileApplied("src/App.jsx", "new content"))
+    project.update(
+      project.init(),
+      project.FileApplied("src/App.jsx", "new content"),
+    )
 
   assert next.save_status == "Unsaved changes"
-  assert project.upsert_file([], "src/App.jsx", "new content") == [templates.ProjectFile("src/App.jsx", "new content")]
+  assert project.upsert_file([], "src/App.jsx", "new content")
+    == [templates.ProjectFile("src/App.jsx", "new content")]
   assert effects == [project.WriteFileToContainer("src/App.jsx", "new content")]
 }
 
 pub fn project_open_dialog_refreshes_list_test() {
-  let #(next, effects) = project.update(project.init(), project.ProjectsDialogOpened)
+  let #(next, effects) =
+    project.update(project.init(), project.ProjectsDialogOpened)
 
   assert next.projects_open
   assert effects == [project.RefreshProjectList]
 }
 
 pub fn preview_toggle_and_url_reenable_inspector_test() {
-  let #(on, enable) = preview.update(preview.init(), preview.ElementSelectToggled)
+  let #(on, enable) =
+    preview.update(preview.init(), preview.ElementSelectToggled)
   assert on.selecting_element
   assert enable == [preview.PostInspectorMessage(preview.BuildInspectorEnable)]
 
-  let #(_, url_effects) = preview.update(on, preview.PreviewUrlChanged("http://localhost:5173"))
-  assert url_effects == [preview.PostInspectorMessage(preview.BuildInspectorEnable)]
+  let #(_, url_effects) =
+    preview.update(on, preview.PreviewUrlChanged("http://localhost:5173"))
+  assert url_effects
+    == [preview.PostInspectorMessage(preview.BuildInspectorEnable)]
 
   let #(off, disable) = preview.update(on, preview.ElementSelectToggled)
   assert !off.selecting_element
-  assert disable == [preview.PostInspectorMessage(preview.BuildInspectorDisable)]
+  assert disable
+    == [preview.PostInspectorMessage(preview.BuildInspectorDisable)]
 }
 
 pub fn webcontainer_boot_and_remount_test() {
   assert webcontainer.is_busy(webcontainer.init())
-  let #(booting, _) = webcontainer.update(webcontainer.init(), webcontainer.BootStarted)
+  let #(booting, _) =
+    webcontainer.update(webcontainer.init(), webcontainer.BootStarted)
   assert booting.boot_phase == webcontainer.BootingContainer
 
   let #(ready, _) = webcontainer.update(booting, webcontainer.BootSucceeded)
@@ -94,7 +122,10 @@ pub fn webcontainer_boot_and_remount_test() {
   assert ready.hydrated
 
   let #(remounting, effects) =
-    webcontainer.update(ready, webcontainer.RemountRequested(templates.starter_files()))
+    webcontainer.update(
+      ready,
+      webcontainer.RemountRequested(templates.starter_files()),
+    )
   assert remounting.boot_phase == webcontainer.Remounting
   assert remounting.suppress_auto_save
   assert effects == [webcontainer.MountAndInstall(templates.starter_files())]
@@ -107,11 +138,19 @@ pub fn webcontainer_caps_logs_to_prior_200_plus_new_line_test() {
   assert list.first(state.logs) == Ok("4")
 }
 
-fn append_logs(state: webcontainer.State, index: Int, limit: Int) -> webcontainer.State {
+fn append_logs(
+  state: webcontainer.State,
+  index: Int,
+  limit: Int,
+) -> webcontainer.State {
   case index >= limit {
     True -> state
     False -> {
-      let #(next, _) = webcontainer.update(state, webcontainer.LogAppended(int.to_string(index)))
+      let #(next, _) =
+        webcontainer.update(
+          state,
+          webcontainer.LogAppended(int.to_string(index)),
+        )
       append_logs(next, index + 1, limit)
     }
   }

@@ -15,16 +15,18 @@ function gleamListToArray(list) { return Array.isArray(list) ? list : typeof lis
 function normalizeFiles(files) { return gleamListToArray(files).map(file => ({ path: file.path, content: file.content })) }
 function normalizeMessages(messages) { return gleamListToArray(messages).map(message => ({ role: message.role.constructor.name === 'User' ? 'user' : 'assistant', content: message.content })) }
 function normalizeSelectedElement(option) {
-  if (!option || option.constructor.name === 'None') return undefined
-  const element = option[0]
+  if (!option || option.constructor?.name === 'None') return undefined
+  const element = option[0] ?? option.value ?? option.element ?? option
+  const tagName = element?.tagName ?? element?.tag_name
+  if (!element || !tagName) return undefined
   return {
-    tagName: element.tag_name,
-    id: element.id,
+    tagName,
+    id: element.id ?? '',
     classes: gleamListToArray(element.classes),
-    textContent: element.text_content,
-    outerHTML: element.outer_html,
-    boundingRect: element.bounding_rect,
-    computedStyles: Object.fromEntries(gleamListToArray(element.computed_styles)),
+    textContent: element.textContent ?? element.text_content ?? '',
+    outerHTML: element.outerHTML ?? element.outer_html ?? '',
+    boundingRect: element.boundingRect ?? element.bounding_rect ?? { x: 0, y: 0, width: 0, height: 0 },
+    computedStyles: element.computedStyles ?? Object.fromEntries(gleamListToArray(element.computed_styles)),
   }
 }
 

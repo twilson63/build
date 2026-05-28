@@ -17,7 +17,10 @@ pub fn update(
 ) -> #(model.Model, List(effect.Effect)) {
   case message {
     msg.NoOp -> #(app, [])
-    msg.InitApp -> #(app, [effect.Project(project.LoadInitialProject)])
+    msg.InitApp -> #(app, [
+      effect.Settings(settings.LoadSettings),
+      effect.Project(project.LoadInitialProject),
+    ])
     msg.SaveSettings -> #(
       model.Model(
         ..app,

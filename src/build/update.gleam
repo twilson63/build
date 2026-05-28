@@ -163,7 +163,9 @@ fn update_agent(
             ),
             list.append(
               mapped_agent_effects,
-              list.map(project_effects, effect.Project),
+              list.append(list.map(project_effects, effect.Project), [
+                effect.ScrollMessagesToBottom,
+              ]),
             ),
           )
         }
@@ -175,7 +177,7 @@ fn update_agent(
           let chat_state = chat.update(app.chat, chat.AssistantError(message))
           with_auto_save(
             model.Model(..app, agent: agent_state, chat: chat_state),
-            mapped_agent_effects,
+            list.append(mapped_agent_effects, [effect.ScrollMessagesToBottom]),
           )
         }
         False -> #(model.Model(..app, agent: agent_state), mapped_agent_effects)
@@ -289,10 +291,16 @@ fn improve_selected_element(
               selected_element: option.Some(selected),
               element_comment: comment,
             )
-          #(model.Model(..app, chat: chat_state, agent: agent_state), [
-            effect.Settings(settings.persist_effect(app.settings)),
-            ..list.map(list.append(agent_effects, [call_agent]), effect.Agent)
-          ])
+          #(
+            model.Model(..app, chat: chat_state, agent: agent_state),
+            list.append(
+              [effect.Settings(settings.persist_effect(app.settings))],
+              list.append(
+                list.map(list.append(agent_effects, [call_agent]), effect.Agent),
+                [effect.ScrollMessagesToBottom],
+              ),
+            ),
+          )
         }
       }
     _, _ -> #(app, [])
@@ -333,10 +341,16 @@ fn submit_prompt(
               selected_element: option.None,
               element_comment: "",
             )
-          #(model.Model(..app, chat: chat_state, agent: agent_state), [
-            effect.Settings(settings.persist_effect(app.settings)),
-            ..list.map(list.append(agent_effects, [call_agent]), effect.Agent)
-          ])
+          #(
+            model.Model(..app, chat: chat_state, agent: agent_state),
+            list.append(
+              [effect.Settings(settings.persist_effect(app.settings))],
+              list.append(
+                list.map(list.append(agent_effects, [call_agent]), effect.Agent),
+                [effect.ScrollMessagesToBottom],
+              ),
+            ),
+          )
         }
       }
   }

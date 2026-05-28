@@ -144,7 +144,7 @@ async function requestOllamaContent(args: AgentArgs, messages: ModelMessage[]) {
 async function requestOpenRouterContent(args: AgentArgs, messages: ModelMessage[]) {
   if (!args.apiKey?.trim()) throw new Error('OpenRouter API key is required for the OpenRouter provider')
 
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const request = (body: Record<string, unknown>) => fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -152,18 +152,28 @@ async function requestOpenRouterContent(args: AgentArgs, messages: ModelMessage[
       'HTTP-Referer': globalThis.location?.origin ?? 'http://localhost',
       'X-Title': 'Browser App Builder MVP',
     },
-    body: JSON.stringify({
-      model: args.model,
-      temperature: 0.2,
-      response_format: { type: 'json_object' },
-      messages,
-    }),
+    body: JSON.stringify(body),
     signal: args.signal,
   })
+  const baseBody = { model: args.model, temperature: 0.2, messages }
+  let response = await request({ ...baseBody, response_format: { type: 'json_object' } })
+  let errorText = ''
 
-  if (!response.ok) throw new Error(`OpenRouter error ${response.status}: ${await response.text()}`)
+  if (!response.ok) {
+    errorText = await response.text()
+    if (shouldRetryOpenRouterWithoutJsonMode(response.status, errorText)) {
+      response = await request(baseBody)
+      errorText = ''
+    }
+  }
+
+  if (!response.ok) throw new Error(`OpenRouter error ${response.status}: ${errorText || await response.text()}`)
   const data = await response.json()
   const content = data.choices?.[0]?.message?.content
   if (!content) throw new Error('OpenRouter returned no message content')
   return content
+}
+
+function shouldRetryOpenRouterWithoutJsonMode(status: number, errorText: string) {
+  return (status === 400 || status === 422) && /response[_ ]format|json[_ ]object|json mode/i.test(errorText)
 }

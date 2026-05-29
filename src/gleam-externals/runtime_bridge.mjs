@@ -90,6 +90,10 @@ export function dispatchPreviewElementSelected(element) {
 export function dispatchAgentSucceeded(requestId, reply, patches) { sendMsg(Msg.Msg$Agent(Agent.Msg$AgentRequestSucceeded(requestId, reply, toList((patches ?? []).map(p => Agent.Patch$Patch(p.path, p.content)))))) }
 export function dispatchAgentFailed(requestId, message) { sendMsg(Msg.Msg$Agent(Agent.Msg$AgentRequestFailed(requestId, message))) }
 export function dispatchAgentTick(now) { sendMsg(Msg.Msg$Agent(Agent.Msg$AgentElapsedTick(now))) }
+export function dispatchBuildFromPlan(planSummary) {
+  const requestId = `plan-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  sendMsg(Msg.Msg$BuildFromPlan(String(planSummary ?? ''), requestId, Date.now()))
+}
 export function dispatchNewProjectConfirmed() { sendMsg(Msg.Msg$NewProjectConfirmed()) }
 export function dispatchRemoveProjectConfirmed(id) { sendMsg(Msg.Msg$RemoveProjectConfirmed(id)) }
 export function dispatchSettingsLoaded(settings) {

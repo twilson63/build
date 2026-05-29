@@ -13,6 +13,8 @@ describe('project templates', () => {
     ]))
     expect(starterFiles.find(file => file.path === 'src/db.ts')?.content).toContain('@electric-sql/pglite')
     expect(starterFiles.find(file => file.path === 'src/main.tsx')?.content).toContain("./build-inspector")
+    expect(starterFiles.find(file => file.path === 'src/main.tsx')?.content).toContain('BUILD_APP_FROM_PLAN')
+    expect(starterFiles.find(file => file.path === 'src/main.tsx')?.content).toContain('Welcome to Build')
     expect(starterFiles.find(file => file.path === 'src/build-inspector.ts')?.content).toContain('BUILD_ELEMENT_SELECTED')
   })
 

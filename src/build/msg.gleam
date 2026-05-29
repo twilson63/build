@@ -13,6 +13,7 @@ pub type Msg {
   NewProject
   NewProjectConfirmed
   SubmitPrompt(request_id: String, now: Int)
+  BuildFromPlan(plan_summary: String, request_id: String, now: Int)
   ImproveSelectedElement(request_id: String, now: Int)
   CancelAgent
   ResetProject

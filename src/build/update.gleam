@@ -55,6 +55,8 @@ pub fn update(
       )
     }
     msg.SubmitPrompt(request_id, now) -> submit_prompt(app, request_id, now)
+    msg.BuildFromPlan(plan_summary, request_id, now) ->
+      build_from_plan(app, plan_summary, request_id, now)
     msg.ImproveSelectedElement(request_id, now) ->
       improve_selected_element(app, request_id, now)
     msg.ExportZip -> #(app, [effect.ExportZip(app.project.files)])
@@ -315,44 +317,67 @@ fn submit_prompt(
 ) -> #(model.Model, List(effect.Effect)) {
   case can_submit_prompt(app) {
     False -> #(app, [])
-    True ->
-      case settings_missing(app) {
-        True -> #(
-          model.Model(
-            ..app,
-            settings: settings.State(..app.settings, settings_open: True),
-          ),
-          [],
+    True -> call_agent_with_prompt(app, app.chat.prompt, app.chat.prompt, request_id, now)
+  }
+}
+
+fn build_from_plan(
+  app: model.Model,
+  plan_summary: String,
+  request_id: String,
+  now: Int,
+) -> #(model.Model, List(effect.Effect)) {
+  let user_message = "Build this app from the interview plan.\n\n" <> plan_summary
+  let agent_prompt =
+    "Replace the starter interview app with the new application described in this interview plan. Use the plan as the source of truth. Build a polished, runnable React + TypeScript app. Preserve src/build-inspector.ts and its import.\n\nApp plan:\n" <> plan_summary
+  case !agent.is_running(app.agent) && !webcontainer.is_busy(app.webcontainer) {
+    False -> #(app, [])
+    True -> call_agent_with_prompt(app, user_message, agent_prompt, request_id, now)
+  }
+}
+
+fn call_agent_with_prompt(
+  app: model.Model,
+  user_message: String,
+  agent_prompt: String,
+  request_id: String,
+  now: Int,
+) -> #(model.Model, List(effect.Effect)) {
+  case settings_missing(app) {
+    True -> #(
+      model.Model(
+        ..app,
+        settings: settings.State(..app.settings, settings_open: True),
+      ),
+      [],
+    )
+    False -> {
+      let chat_state = chat.update(app.chat, chat.UserSentMessage(user_message))
+      let #(agent_state, agent_effects) =
+        agent.update(app.agent, agent.AgentRequestStarted(request_id, now))
+      let call_agent =
+        agent.CallAgent(
+          request_id: request_id,
+          provider: app.settings.provider,
+          api_key: app.settings.api_key,
+          ollama_url: app.settings.ollama_url,
+          model: app.settings.model,
+          user_prompt: agent_prompt,
+          files: app.project.files,
+          messages: app.chat.messages,
+          selected_element: option.None,
+          element_comment: "",
         )
-        False -> {
-          let chat_state =
-            chat.update(app.chat, chat.UserSentMessage(app.chat.prompt))
-          let #(agent_state, agent_effects) =
-            agent.update(app.agent, agent.AgentRequestStarted(request_id, now))
-          let call_agent =
-            agent.CallAgent(
-              request_id: request_id,
-              provider: app.settings.provider,
-              api_key: app.settings.api_key,
-              ollama_url: app.settings.ollama_url,
-              model: app.settings.model,
-              user_prompt: app.chat.prompt,
-              files: app.project.files,
-              messages: app.chat.messages,
-              selected_element: option.None,
-              element_comment: "",
-            )
-          #(
-            model.Model(..app, chat: chat_state, agent: agent_state),
-            list.append(
-              [effect.Settings(settings.persist_effect(app.settings))],
-              list.append(
-                list.map(list.append(agent_effects, [call_agent]), effect.Agent),
-                [effect.ScrollMessagesToBottom],
-              ),
-            ),
-          )
-        }
-      }
+      #(
+        model.Model(..app, chat: chat_state, agent: agent_state),
+        list.append(
+          [effect.Settings(settings.persist_effect(app.settings))],
+          list.append(
+            list.map(list.append(agent_effects, [call_agent]), effect.Agent),
+            [effect.ScrollMessagesToBottom],
+          ),
+        ),
+      )
+    }
   }
 }

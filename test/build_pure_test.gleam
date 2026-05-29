@@ -22,6 +22,8 @@ pub fn starter_files_include_runnable_project_test() {
   assert list.contains(paths, "src/style.css")
   assert file_content(files, "src/db.ts") |> string.contains("@electric-sql/pglite")
   assert file_content(files, "src/main.tsx") |> string.contains("./build-inspector")
+  assert file_content(files, "src/main.tsx") |> string.contains("BUILD_APP_FROM_PLAN")
+  assert file_content(files, "src/main.tsx") |> string.contains("Welcome to Build")
   assert file_content(files, "src/build-inspector.ts") |> string.contains("BUILD_ELEMENT_SELECTED")
 }
 

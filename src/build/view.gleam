@@ -46,7 +46,13 @@ pub fn view(app: model.Model) -> Element(msg.Msg) {
         app.preview.element_comment,
         busy,
       ),
-      build_agent_chat.view(app.chat.messages, app.chat.prompt, running, busy),
+      build_agent_chat.view(
+        app.chat.messages,
+        app.chat.expanded_messages,
+        app.chat.prompt,
+        running,
+        busy,
+      ),
     ]),
     html.main([attribute.class("workspace")], [
       build_preview.view(

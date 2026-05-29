@@ -5,4 +5,5 @@ declare module '*.mjs' {
   export function registerBuildEditor(): void
   export function registerBuildTerminal(): void
   export function dispatchPreviewElementSelected(element: unknown): void
+  export function dispatchBuildFromPlan(planSummary: string): void
 }

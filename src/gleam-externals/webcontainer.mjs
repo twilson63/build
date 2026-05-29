@@ -6,6 +6,7 @@ const fallbackStarterFiles = [
   { path: 'src/main.tsx', content: 'console.log("Build")' },
 ]
 let lastFiles = fallbackStarterFiles
+const scheduledFileWrites = new Map()
 
 async function modules() {
   try {
@@ -96,6 +97,16 @@ export async function readFilesFromContainer() {
 export async function writeFileToContainer(path, content) {
   const m = await modules()
   await m.writeProjectFile(path, content)
+}
+
+export function scheduleWriteFileToContainer(delay, path, content) {
+  const previous = scheduledFileWrites.get(path)
+  if (previous) clearTimeout(previous)
+  const timer = setTimeout(() => {
+    scheduledFileWrites.delete(path)
+    void writeFileToContainer(path, content)
+  }, delay)
+  scheduledFileWrites.set(path, timer)
 }
 
 export async function startShell(onOutput, terminal) {

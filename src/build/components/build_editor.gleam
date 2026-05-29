@@ -14,7 +14,7 @@ pub fn view(path: String, content: String) -> Element(msg.Msg) {
       attribute.attribute("value", content),
       event.on("change", {
         use value <- decode.field("detail", decode.string)
-        decode.success(msg.Project(project.FileApplied(path, value)))
+        decode.success(msg.Project(project.FileEdited(path, value)))
       }),
     ],
     [],

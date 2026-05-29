@@ -118,6 +118,7 @@ pub fn update(
         ])
         project.ProjectNameChanged(_)
         | project.FileApplied(_, _)
+        | project.FileEdited(_, _)
         | project.FilesUpdated(_, _)
         | project.SelectedPathChanged(_)
         | project.ResetToStarter ->

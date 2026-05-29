@@ -31,6 +31,8 @@ pub fn interpret(effect: project.Effect) -> Nil {
       persist_current_project_id(option.unwrap(id, ""))
     project.WriteFileToContainer(path, content) ->
       write_file_to_container(path, content)
+    project.DebouncedWriteFileToContainer(delay, path, content) ->
+      schedule_write_file_to_container(delay, path, content)
     project.RemountProject(_) -> remount_project()
     project.ScheduleSave(
       delay,
@@ -86,6 +88,13 @@ fn persist_current_project_id(id: String) -> Nil
 
 @external(javascript, "../../gleam-externals/webcontainer.mjs", "writeFileToContainer")
 fn write_file_to_container(path: String, content: String) -> Nil
+
+@external(javascript, "../../gleam-externals/webcontainer.mjs", "scheduleWriteFileToContainer")
+fn schedule_write_file_to_container(
+  delay: Int,
+  path: String,
+  content: String,
+) -> Nil
 
 @external(javascript, "../../gleam-externals/webcontainer.mjs", "remountProject")
 fn remount_project() -> Nil

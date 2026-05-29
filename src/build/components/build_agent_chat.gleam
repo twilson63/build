@@ -10,6 +10,7 @@ import lustre/event
 
 pub fn view(
   messages: List(chat.Message),
+  expanded_messages: List(Int),
   prompt: String,
   running: Bool,
   busy: Bool,
@@ -36,7 +37,10 @@ pub fn view(
           ),
         ]),
       ]
-      _ -> list.index_map(messages, message_view)
+      _ ->
+        list.index_map(messages, fn(message, index) {
+          message_view(message, index, list.contains(expanded_messages, index))
+        })
     }),
     html.textarea(
       [
@@ -104,10 +108,16 @@ fn submit_shortcut_decoder() {
   }
 }
 
-fn message_view(message: chat.Message, index: Int) -> Element(msg.Msg) {
-  let role_class = case message.role {
-    chat.User -> "msg user"
-    chat.Assistant -> "msg assistant"
+fn message_view(
+  message: chat.Message,
+  index: Int,
+  expanded: Bool,
+) -> Element(msg.Msg) {
+  let role_class = case message.role, expanded {
+    chat.User, True -> "msg user expanded"
+    chat.User, False -> "msg user"
+    chat.Assistant, True -> "msg assistant expanded"
+    chat.Assistant, False -> "msg assistant"
   }
   html.button(
     [

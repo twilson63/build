@@ -86,6 +86,24 @@ pub fn project_file_applied_upserts_and_writes_test() {
   assert effects == [project.WriteFileToContainer("src/App.jsx", "new content")]
 }
 
+pub fn project_file_edited_debounces_container_write_test() {
+  let #(next, effects) =
+    project.update(
+      project.init(),
+      project.FileEdited("src/App.jsx", "new content"),
+    )
+
+  assert next.save_status == "Unsaved changes"
+  assert project.upsert_file([], "src/App.jsx", "new content")
+    == [
+      templates.ProjectFile("src/App.jsx", "new content"),
+    ]
+  assert effects
+    == [
+      project.DebouncedWriteFileToContainer(2000, "src/App.jsx", "new content"),
+    ]
+}
+
 pub fn project_open_dialog_refreshes_list_test() {
   let #(next, effects) =
     project.update(project.init(), project.ProjectsDialogOpened)

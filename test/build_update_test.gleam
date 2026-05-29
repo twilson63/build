@@ -150,6 +150,41 @@ pub fn open_remove_and_export_project_emit_effects_test() {
     == #(model.init(), [effect.ExportZip(model.init().project.files)])
 }
 
+pub fn editor_file_changes_debounce_container_write_and_schedule_autosave_test() {
+  let app =
+    model.Model(
+      ..model.init(),
+      webcontainer: webcontainer.State(
+        ..webcontainer.init(),
+        boot_phase: webcontainer.Ready,
+        hydrated: True,
+      ),
+    )
+  let #(next, effects) =
+    update.update(
+      app,
+      msg.Project(project.FileEdited("src/main.tsx", "new content")),
+    )
+
+  assert next.project.save_status == "Saving..."
+  assert effects
+    == [
+      effect.Project(project.DebouncedWriteFileToContainer(
+        2000,
+        "src/main.tsx",
+        "new content",
+      )),
+      effect.Project(project.ScheduleSave(
+        900,
+        next.project.project_name,
+        next.project.files,
+        next.chat.messages,
+        next.project.selected_path,
+        next.project.current_project_id,
+      )),
+    ]
+}
+
 pub fn file_changes_schedule_autosave_when_hydrated_test() {
   let app =
     model.Model(
